@@ -69,8 +69,8 @@ import org.jellyfin.apiclient.model.querying.ItemFields;
 import org.jellyfin.sdk.model.api.BaseItemDto;
 import org.jellyfin.sdk.model.api.BaseItemKind;
 import org.jellyfin.sdk.model.api.SortOrder;
-import org.jellyfin.sdk.model.constant.CollectionType;
-import org.jellyfin.sdk.model.constant.ItemSortBy;
+import org.jellyfin.sdk.model.api.CollectionType;
+import org.jellyfin.sdk.model.api.ItemSortBy;
 import org.koin.java.KoinJavaComponent;
 
 import java.util.HashMap;
@@ -134,20 +134,20 @@ public class BrowseGridFragment extends Fragment {
         sortOptions = new HashMap<>();
         {
             // don't use Descending Name fallbacks for dates/ratings!
-            sortOptions.put(0, new SortOption(getString(R.string.lbl_name), ItemSortBy.SortName, SortOrder.ASCENDING));
-            if (mFolder != null && CollectionType.TvShows.equals(mFolder.getCollectionType())) {
-                sortOptions.put(1, new SortOption(getString(R.string.lbl_date_latest), ItemSortBy.DateLastContentAdded, SortOrder.DESCENDING));
-                sortOptions.put(2, new SortOption(getString(R.string.lbl_date_played), ItemSortBy.SeriesDatePlayed + "," + ItemSortBy.PremiereDate, SortOrder.DESCENDING));
-                sortOptions.put(3, new SortOption(getString(R.string.lbl_premier_date), ItemSortBy.PremiereDate, SortOrder.DESCENDING));
-                sortOptions.put(4, new SortOption(getString(R.string.lbl_date_added), ItemSortBy.DateCreated, SortOrder.DESCENDING));
-                sortOptions.put(5, new SortOption(getString(R.string.lbl_community_rating), ItemSortBy.CommunityRating + "," + ItemSortBy.PremiereDate, SortOrder.DESCENDING));
-                sortOptions.put(6, new SortOption(getString(R.string.lbl_critic_rating), ItemSortBy.CriticRating + "," + ItemSortBy.PremiereDate, SortOrder.DESCENDING));
+            sortOptions.put(0, new SortOption(getString(R.string.lbl_name), ItemSortBy.SORT_NAME.getSerialName(), SortOrder.ASCENDING));
+            if (mFolder != null && CollectionType.TVSHOWS.getSerialName().equals(mFolder.getCollectionType())) {
+                sortOptions.put(1, new SortOption(getString(R.string.lbl_date_latest), ItemSortBy.DATE_LAST_CONTENT_ADDED.getSerialName(), SortOrder.DESCENDING));
+                sortOptions.put(2, new SortOption(getString(R.string.lbl_date_played), ItemSortBy.SERIES_DATE_PLAYED.getSerialName() + "," + ItemSortBy.PREMIERE_DATE.getSerialName(), SortOrder.DESCENDING));
+                sortOptions.put(3, new SortOption(getString(R.string.lbl_premier_date), ItemSortBy.PREMIERE_DATE.getSerialName(), SortOrder.DESCENDING));
+                sortOptions.put(4, new SortOption(getString(R.string.lbl_date_added), ItemSortBy.DATE_CREATED.getSerialName(), SortOrder.DESCENDING));
+                sortOptions.put(5, new SortOption(getString(R.string.lbl_community_rating), ItemSortBy.COMMUNITY_RATING.getSerialName() + "," + ItemSortBy.PREMIERE_DATE.getSerialName(), SortOrder.DESCENDING));
+                sortOptions.put(6, new SortOption(getString(R.string.lbl_critic_rating), ItemSortBy.CRITIC_RATING.getSerialName() + "," + ItemSortBy.PREMIERE_DATE.getSerialName(), SortOrder.DESCENDING));
             } else {
-                sortOptions.put(1, new SortOption(getString(R.string.lbl_date_played), ItemSortBy.DatePlayed + "," + ItemSortBy.PremiereDate, SortOrder.DESCENDING));
-                sortOptions.put(2, new SortOption(getString(R.string.lbl_premier_date), ItemSortBy.PremiereDate, SortOrder.DESCENDING));
-                sortOptions.put(3, new SortOption(getString(R.string.lbl_date_added), ItemSortBy.DateCreated, SortOrder.DESCENDING));
-                sortOptions.put(4, new SortOption(getString(R.string.lbl_community_rating), ItemSortBy.CommunityRating + "," + ItemSortBy.PremiereDate, SortOrder.DESCENDING));
-                sortOptions.put(5, new SortOption(getString(R.string.lbl_critic_rating), ItemSortBy.CriticRating + "," + ItemSortBy.PremiereDate, SortOrder.DESCENDING));
+                sortOptions.put(1, new SortOption(getString(R.string.lbl_date_played), ItemSortBy.DATE_PLAYED.getSerialName() + "," + ItemSortBy.PREMIERE_DATE.getSerialName(), SortOrder.DESCENDING));
+                sortOptions.put(2, new SortOption(getString(R.string.lbl_premier_date), ItemSortBy.PREMIERE_DATE.getSerialName(), SortOrder.DESCENDING));
+                sortOptions.put(3, new SortOption(getString(R.string.lbl_date_added), ItemSortBy.DATE_CREATED.getSerialName(), SortOrder.DESCENDING));
+                sortOptions.put(4, new SortOption(getString(R.string.lbl_community_rating), ItemSortBy.COMMUNITY_RATING.getSerialName() + "," + ItemSortBy.PREMIERE_DATE.getSerialName(), SortOrder.DESCENDING));
+                sortOptions.put(5, new SortOption(getString(R.string.lbl_critic_rating), ItemSortBy.CRITIC_RATING.getSerialName() + "," + ItemSortBy.PREMIERE_DATE.getSerialName(), SortOrder.DESCENDING));
             }
         }
 
@@ -376,22 +376,22 @@ public class BrowseGridFragment extends Fragment {
         });
         query.setParentId(mParentId.toString());
         if (mFolder.getType() == BaseItemKind.USER_VIEW || mFolder.getType() == BaseItemKind.COLLECTION_FOLDER) {
-            String type = mFolder.getCollectionType() != null ? mFolder.getCollectionType().toLowerCase() : "";
+            String type = mFolder.getCollectionType() != null ? mFolder.getCollectionType().getSerialName() : "";
             switch (type) {
-                case CollectionType.Movies -> {
+                case "movies" -> {
                     query.setIncludeItemTypes(new String[]{"Movie"});
                     query.setRecursive(true);
                 }
-                case CollectionType.TvShows -> {
+                case "tvshows" -> {
                     query.setIncludeItemTypes(new String[]{"Series"});
                     query.setRecursive(true);
                 }
-                case CollectionType.BoxSets -> {
+                case "boxsets" -> {
                     query.setIncludeItemTypes(new String[]{"BoxSet"});
                     query.setParentId(null);
                     query.setRecursive(true);
                 }
-                case CollectionType.Music -> {
+                case "music" -> {
                     //Special queries needed for album artists
                     String includeType = requireActivity().getIntent().getStringExtra(Extras.IncludeType);
                     if ("AlbumArtist".equals(includeType)) {
@@ -421,7 +421,7 @@ public class BrowseGridFragment extends Fragment {
         BaseItemKind fType = mFolder.getType();
         if (fType == BaseItemKind.AUDIO || fType == BaseItemKind.GENRE || fType == BaseItemKind.MUSIC_ALBUM || fType == BaseItemKind.MUSIC_ARTIST || fType == BaseItemKind.MUSIC_GENRE) {
             return true;
-        } else if (CollectionType.Music.equals(mFolder.getCollectionType())) {
+        } else if (CollectionType.MUSIC.getSerialName().equals(mFolder.getCollectionType())) {
             return true;
         } else {
             return false;
@@ -503,7 +503,7 @@ public class BrowseGridFragment extends Fragment {
                 setStatusText(mFolder.getName());
                 setItem(mCurrentItem);
                 updateCounter();
-                mLetterButton.setVisibility(ItemSortBy.SortName.equals(mAdapter.getSortBy()) ? View.VISIBLE : View.GONE);
+                mLetterButton.setVisibility(ItemSortBy.SORT_NAME.getSerialName().equals(mAdapter.getSortBy()) ? View.VISIBLE : View.GONE);
                 if (mAdapter.getItemsLoaded() == 0) {
                     binding.toolbarLayout.requestFocus();
                     mHandler.postDelayed(() -> {
@@ -631,7 +631,7 @@ public class BrowseGridFragment extends Fragment {
                 settingsIntent.putExtra(PreferencesActivity.EXTRA_SCREEN, DisplayPreferencesScreen.class.getCanonicalName());
                 Bundle screenArgs = new Bundle();
                 screenArgs.putString(DisplayPreferencesScreen.ARG_PREFERENCES_ID, mFolder.getDisplayPreferencesId());
-                screenArgs.putBoolean(DisplayPreferencesScreen.ARG_ALLOW_VIEW_SELECTION, userViewsRepository.getValue().allowViewSelection(mFolder.getCollectionType()));
+                screenArgs.putBoolean(DisplayPreferencesScreen.ARG_ALLOW_VIEW_SELECTION, userViewsRepository.getValue().allowViewSelection(mFolder.getCollectionType() != null ? mFolder.getCollectionType().getSerialName() : null));
                 settingsIntent.putExtra(PreferencesActivity.EXTRA_SCREEN_ARGS, screenArgs);
                 requireActivity().startActivity(settingsIntent);
             }

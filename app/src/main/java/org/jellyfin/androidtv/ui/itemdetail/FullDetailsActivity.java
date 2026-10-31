@@ -101,9 +101,9 @@ import org.jellyfin.apiclient.serialization.GsonJsonSerializer;
 import org.jellyfin.sdk.model.api.BaseItemKind;
 import org.jellyfin.sdk.model.api.BaseItemPerson;
 import org.jellyfin.sdk.model.api.ImageType;
-import org.jellyfin.sdk.model.constant.ItemSortBy;
-import org.jellyfin.sdk.model.constant.MediaType;
-import org.jellyfin.sdk.model.constant.PersonType;
+import org.jellyfin.sdk.model.api.ItemSortBy;
+import org.jellyfin.sdk.model.api.MediaType;
+import org.jellyfin.sdk.model.api.PersonKind;
 import org.koin.java.KoinJavaComponent;
 
 import java.util.ArrayList;
@@ -444,7 +444,7 @@ public class FullDetailsActivity extends BaseActivity implements RecordingIndica
                 break;
             default:
 
-                BaseItemPerson director = BaseItemUtils.getFirstPerson(item, PersonType.Director);
+                BaseItemPerson director = BaseItemUtils.getFirstPerson(item, PersonKind.DIRECTOR);
 
                 InfoItem firstRow;
                 if (item.getBaseItemType() == BaseItemType.Series) {
@@ -624,7 +624,7 @@ public class FullDetailsActivity extends BaseActivity implements RecordingIndica
                 personMovies.setPersonIds(new String[] {mBaseItem.getId()});
                 personMovies.setRecursive(true);
                 personMovies.setIncludeItemTypes(new String[] {"Movie"});
-                personMovies.setSortBy(new String[] {ItemSortBy.SortName});
+                personMovies.setSortBy(new String[] {ItemSortBy.SORT_NAME.getSerialName()});
                 ItemRowAdapter personMoviesAdapter = new ItemRowAdapter(this, personMovies, new CardPresenter(), adapter).setChunkSize(100);
                 addItemRow(adapter, personMoviesAdapter, 0, getString(R.string.lbl_movies));
 
@@ -637,7 +637,7 @@ public class FullDetailsActivity extends BaseActivity implements RecordingIndica
                 personSeries.setPersonIds(new String[] {mBaseItem.getId()});
                 personSeries.setRecursive(true);
                 personSeries.setIncludeItemTypes(new String[] {"Series"});
-                personSeries.setSortBy(new String[] {ItemSortBy.SortName});
+                personSeries.setSortBy(new String[] {ItemSortBy.SORT_NAME.getSerialName()});
                 ItemRowAdapter personSeriesAdapter = new ItemRowAdapter(this, personSeries, new CardPresenter(), adapter).setChunkSize(100);
                 addItemRow(adapter, personSeriesAdapter, 1, getString(R.string.lbl_tv_series));
 
@@ -650,7 +650,7 @@ public class FullDetailsActivity extends BaseActivity implements RecordingIndica
                 personEpisodes.setPersonIds(new String[] {mBaseItem.getId()});
                 personEpisodes.setRecursive(true);
                 personEpisodes.setIncludeItemTypes(new String[] {"Episode"});
-                personEpisodes.setSortBy(new String[] {ItemSortBy.SeriesSortName, ItemSortBy.SortName});
+                personEpisodes.setSortBy(new String[] {ItemSortBy.SERIES_SORT_NAME.getSerialName(), ItemSortBy.SORT_NAME.getSerialName()});
                 ItemRowAdapter personEpisodesAdapter = new ItemRowAdapter(this, personEpisodes, new CardPresenter(), adapter).setChunkSize(100);
                 addItemRow(adapter, personEpisodesAdapter, 2, getString(R.string.lbl_episodes));
 
@@ -730,7 +730,7 @@ public class FullDetailsActivity extends BaseActivity implements RecordingIndica
                 if (mBaseItem.getPeople() != null && mBaseItem.getPeople().length > 0) {
                     List<BaseItemPerson> guests = new ArrayList<>();
                     for (BaseItemPerson person : ModelCompat.asSdk(mBaseItem.getPeople())) {
-                        if (person.getType() == PersonType.GuestStar) guests.add(person);
+                        if (person.getType() == PersonKind.GUEST_STAR) guests.add(person);
                     }
                     if (guests.size() > 0) {
                         ItemRowAdapter castAdapter = new ItemRowAdapter(this, guests.toArray(new BaseItemPerson[guests.size()]), new CardPresenter(), adapter);
@@ -989,7 +989,7 @@ public class FullDetailsActivity extends BaseActivity implements RecordingIndica
                 boolean isMusic = mBaseItem.getBaseItemType() == BaseItemType.MusicAlbum
                         || mBaseItem.getBaseItemType() == BaseItemType.MusicArtist
                         || mBaseItem.getBaseItemType() == BaseItemType.Audio
-                        || (mBaseItem.getBaseItemType() == BaseItemType.Playlist && MediaType.Audio.equals(mBaseItem.getMediaType()));
+                        || (mBaseItem.getBaseItemType() == BaseItemType.Playlist && MediaType.AUDIO.getSerialName().equals(mBaseItem.getMediaType()));
 
                 if (isMusic) {
                     queueButton = TextUnderButton.create(this, R.drawable.ic_add, buttonSize, 2, getString(R.string.lbl_add_to_queue), new View.OnClickListener() {

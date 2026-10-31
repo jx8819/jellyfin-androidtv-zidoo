@@ -35,8 +35,9 @@ import org.jellyfin.apiclient.model.dto.BaseItemDto;
 import org.jellyfin.apiclient.model.dto.BaseItemType;
 import org.jellyfin.apiclient.model.library.PlayAccess;
 import org.jellyfin.apiclient.model.livetv.ChannelInfoDto;
+import org.jellyfin.apiclient.serialization.GsonJsonSerializer;
 import org.jellyfin.sdk.model.api.SearchHint;
-import org.jellyfin.sdk.model.constant.CollectionType;
+import org.jellyfin.sdk.model.api.CollectionType;
 import org.koin.java.KoinJavaComponent;
 
 import java.util.ArrayList;
@@ -54,10 +55,10 @@ public class ItemLauncher {
     public static void createUserViewIntent(final org.jellyfin.sdk.model.api.BaseItemDto baseItem, final Context context, final Consumer<Intent> callback) {
         Timber.d("**** Collection type: %s", baseItem.getCollectionType());
         Intent intent;
-        String collectionType = baseItem.getCollectionType() != null ? baseItem.getCollectionType() : "unknown";
+        CollectionType collectionType = baseItem.getCollectionType() != null ? baseItem.getCollectionType() : CollectionType.UNKNOWN;
         switch (collectionType) {
-            case CollectionType.Movies:
-            case CollectionType.TvShows:
+            case MOVIES:
+            case TVSHOWS:
                 LibraryPreferences displayPreferences = KoinJavaComponent.<PreferencesRepository>get(PreferencesRepository.class).getLibraryPreferences(baseItem.getDisplayPreferencesId());
                 boolean enableSmartScreen = displayPreferences.get(LibraryPreferences.Companion.getEnableSmartScreen());
                 if (!enableSmartScreen) {
@@ -70,8 +71,8 @@ public class ItemLauncher {
                     intent.putExtra(Extras.Folder, Json.Default.encodeToString(org.jellyfin.sdk.model.api.BaseItemDto.Companion.serializer(), baseItem));
                 }
                 break;
-            case CollectionType.Music:
-            case CollectionType.LiveTv:
+            case MUSIC:
+            case LIVETV:
                 // open user view browsing
                 intent = new Intent(context, UserViewActivity.class);
                 intent.putExtra(Extras.Folder, Json.Default.encodeToString(org.jellyfin.sdk.model.api.BaseItemDto.Companion.serializer(), baseItem));
@@ -435,7 +436,7 @@ public class ItemLauncher {
                         folder.setId(UUID.randomUUID().toString());
                         folder.setBaseItemType(BaseItemType.Folder);
                         folder.setName(activity.getString(R.string.lbl_recorded_tv));
-                        recordings.putExtra(Extras.Folder, Json.Default.encodeToString(org.jellyfin.sdk.model.api.BaseItemDto.Companion.serializer(), ModelCompat.asSdk(folder)));
+                        recordings.putExtra(Extras.Folder, KoinJavaComponent.<GsonJsonSerializer>get(GsonJsonSerializer.class).SerializeToString(folder));
                         activity.startActivity(recordings);
                         break;
 
@@ -446,7 +447,7 @@ public class ItemLauncher {
                         seriesTimers.setBaseItemType(BaseItemType.Folder);
                         seriesTimers.setCollectionType("SeriesTimers");
                         seriesTimers.setName(activity.getString(R.string.lbl_series_recordings));
-                        seriesIntent.putExtra(Extras.Folder, Json.Default.encodeToString(org.jellyfin.sdk.model.api.BaseItemDto.Companion.serializer(), ModelCompat.asSdk(seriesTimers)));
+                        seriesIntent.putExtra(Extras.Folder, KoinJavaComponent.<GsonJsonSerializer>get(GsonJsonSerializer.class).SerializeToString(seriesTimers));
 
                         activity.startActivity(seriesIntent);
                         break;

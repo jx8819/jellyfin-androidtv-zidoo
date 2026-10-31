@@ -21,8 +21,8 @@ import org.jellyfin.apiclient.model.querying.ItemFields
 import org.jellyfin.apiclient.model.querying.ItemFilter
 import org.jellyfin.apiclient.model.querying.ItemsResult
 import org.jellyfin.apiclient.model.querying.NextUpQuery
-import org.jellyfin.sdk.model.constant.ItemSortBy
-import org.jellyfin.sdk.model.constant.MediaType
+import org.jellyfin.sdk.model.api.ItemSortBy
+import org.jellyfin.sdk.model.api.MediaType
 
 class HomeFragmentHelper(
 	private val context: Context,
@@ -48,7 +48,7 @@ class HomeFragmentHelper(
 			excludeLocationTypes = arrayOf(LocationType.Virtual)
 			limit = ITEM_LIMIT_RESUME
 			filters = arrayOf(ItemFilter.IsResumable)
-			sortBy = arrayOf(ItemSortBy.DatePlayed)
+			sortBy = arrayOf(ItemSortBy.DATE_PLAYED.serialName)
 			sortOrder = SortOrder.Descending
 		}
 
@@ -56,11 +56,11 @@ class HomeFragmentHelper(
 	}
 
 	fun loadResumeVideo(): HomeFragmentRow {
-		return loadResume(context.getString(R.string.lbl_continue_watching), arrayOf(MediaType.Video))
+		return loadResume(context.getString(R.string.lbl_continue_watching), arrayOf(MediaType.VIDEO.serialName))
 	}
 
 	fun loadResumeAudio(): HomeFragmentRow {
-		return loadResume(context.getString(R.string.lbl_continue_watching), arrayOf(MediaType.Audio))
+		return loadResume(context.getString(R.string.lbl_continue_watching), arrayOf(MediaType.AUDIO.serialName))
 	}
 
 	fun loadLatestLiveTvRecordings(): HomeFragmentRow {

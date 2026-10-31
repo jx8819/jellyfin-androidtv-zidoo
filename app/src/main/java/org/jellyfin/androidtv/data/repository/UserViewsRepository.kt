@@ -5,7 +5,7 @@ import kotlinx.coroutines.flow.flow
 import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.api.client.extensions.userViewsApi
 import org.jellyfin.sdk.model.api.BaseItemDto
-import org.jellyfin.sdk.model.constant.CollectionType
+import org.jellyfin.sdk.model.api.CollectionType
 
 interface UserViewsRepository {
 	val views: Flow<Collection<BaseItemDto>>
@@ -22,7 +22,7 @@ class UserViewsRepositoryImpl(
 		val views by api.userViewsApi.getUserViews()
 		val filteredViews = views.items
 			.orEmpty()
-			.filter { isSupported(it.collectionType) }
+			.filter { isSupported(it.collectionType?.serialName) }
 		emit(filteredViews)
 	}
 
@@ -32,19 +32,19 @@ class UserViewsRepositoryImpl(
 
 	private companion object {
 		private val unsupportedCollectionTypes = arrayOf(
-			CollectionType.Books,
-			CollectionType.Folders
+			CollectionType.BOOKS.serialName,
+			CollectionType.FOLDERS.serialName
 		)
 
 		private val disallowViewSelectionCollectionTypes = arrayOf(
-			CollectionType.LiveTv,
-			CollectionType.Music,
-			CollectionType.Photos,
+			CollectionType.LIVETV.serialName,
+			CollectionType.MUSIC.serialName,
+			CollectionType.PHOTOS.serialName,
 		)
 
 		private val disallowGridViewCollectionTypes = arrayOf(
-			CollectionType.LiveTv,
-			CollectionType.Music
+			CollectionType.LIVETV.serialName,
+			CollectionType.MUSIC.serialName
 		)
 	}
 }

@@ -19,6 +19,8 @@ import org.jellyfin.androidtv.preference.constant.LanguagesAudio;
 import org.jellyfin.androidtv.preference.constant.LanguagesSubtitle;
 import org.jellyfin.apiclient.model.entities.MediaStream;
 import org.jellyfin.apiclient.model.entities.MediaStreamType;
+import org.jellyfin.sdk.model.api.SubtitlePlaybackMode;
+import org.jellyfin.sdk.model.api.UserConfiguration;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -51,6 +53,19 @@ public class AudioSubtitleHelper {
             mAllowSameLanguageSubs = userPreferences.getValue().get(UserPreferences.Companion.getAllowSameLanguageSubs());
             mPreferSdhSubs = userPreferences.getValue().get(UserPreferences.Companion.getUseSdhSubtitles());
             mForcedAudioCodec = userPreferences.getValue().get(UserPreferences.Companion.getForcedAudioCodec()).getCodecName();
+        }
+
+        // explicit values variant, used by unit tests
+        public AudioSubPref(@NonNull LanguagesAudio audioLangSetting, @NonNull LanguagesSubtitle subtitleLangSetting,
+                            boolean hasDtsDecoder, boolean noForcedSubs, boolean allowSameLanguageSubs,
+                            boolean preferSdhSubs, @NonNull String forcedAudioCodec) {
+            mAudioLangSetting = audioLangSetting;
+            mSubtitleLangSetting = subtitleLangSetting;
+            mHasDtsDecoder = hasDtsDecoder;
+            mNoForcedSubs = noForcedSubs;
+            mAllowSameLanguageSubs = allowSameLanguageSubs;
+            mPreferSdhSubs = preferSdhSubs;
+            mForcedAudioCodec = forcedAudioCodec;
         }
     }
 
@@ -115,6 +130,31 @@ public class AudioSubtitleHelper {
     final static Map<String, Integer> AUDIO_PROFILES = Map.of(
             "dts-hd ma", 2
     );
+    // Simplified vs Traditional Chinese title markers, user clearly prefers Simplified picks, used as tie-break only
+    final static String[] TITLE_SIMPLIFIED_STRONG = {"chs", "gb", "hans", "simplified", "简体", "简中"};
+    final static String[] TITLE_SIMPLIFIED_WEAK = {"sc", "简"};
+    final static String[] TITLE_TRADITIONAL_STRONG = {"cht", "big5", "hant", "traditional", "繁体", "繁體"};
+    final static String[] TITLE_TRADITIONAL_WEAK = {"tc", "繁"};
+
+    private static boolean titleContainsAny(@NonNull String lowerTitle, @NonNull String[] markers) {
+        for (String marker : markers) {
+            if (lowerTitle.contains(marker)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // >0 Simplified (2 strong marker like 'chs'/'简体'), <0 Traditional, 0 neutral/ambiguous
+    public static int calcSimplifiedTitleRank(@Nullable String title) {
+        if (isEmpty(title)) {
+            return 0;
+        }
+        String lowerTitle = title.trim().toLowerCase(Locale.US);
+        int simplified = titleContainsAny(lowerTitle, TITLE_SIMPLIFIED_STRONG) ? 2 : (titleContainsAny(lowerTitle, TITLE_SIMPLIFIED_WEAK) ? 1 : 0);
+        int traditional = titleContainsAny(lowerTitle, TITLE_TRADITIONAL_STRONG) ? 2 : (titleContainsAny(lowerTitle, TITLE_TRADITIONAL_WEAK) ? 1 : 0);
+        return simplified - traditional;
+    }
 
     public static boolean isForcedTrack(@NonNull MediaStream stream) {
         return stream.getIsForced() || (stream.getTitle() != null && stream.getTitle().toLowerCase().contains("forced")); // FIX for bad tagged stuff
@@ -267,7 +307,11 @@ public class AudioSubtitleHelper {
             }
             // only use positive merits!
             if (merit >= 0) {
-                outMeritMap.put(merit, new Pair<>(stream, naturalIdx));
+                Pair<MediaStream, Integer> existing = outMeritMap.get(merit);
+                // NOTE: equal merit keeps the FIRST stream (natural order), but a Simplified Chinese title beats a Traditional one (user preference)
+                if (existing == null || (mediaType == MediaStreamType.Subtitle && calcSimplifiedTitleRank(stream.getTitle()) > calcSimplifiedTitleRank(existing.first.getTitle()))) {
+                    outMeritMap.put(merit, new Pair<>(stream, naturalIdx));
+                }
             }
             naturalIdx++;
         }
@@ -415,10 +459,7 @@ public class AudioSubtitleHelper {
 
     // <audio index, subtitle index> those are type relative index, starting at 0! Zidoo uses 0 based idx, but displays human 1 based.
     @Nullable
-    public static Pair<Pair<MediaStream, Integer>, Pair<MediaStream, Integer>> getBestAudioSubtitleIdx(@Nullable ArrayList<MediaStream> mediaStreams, @NonNull AudioSubPref prefs, @Nullable String originalLangCode) {
-        if (prefs.mAudioLangSetting == LanguagesAudio.DEVICE) {
-            return null;
-        }
+    public static Pair<Pair<MediaStream, Integer>, Pair<MediaStream, Integer>> getBestAudioSubtitleIdx(@Nullable ArrayList<MediaStream> mediaStreams, @NonNull AudioSubPref prefs, @Nullable String originalLangCode, @Nullable UserConfiguration userConfiguration) {
         Pair<Integer, Integer> numTracks = getNumAudioSubTracks(mediaStreams);
         if (isEmpty(mediaStreams) || numTracks.first == 0) {
             Timber.d("Empty or no audio stream detected, skipping!");
@@ -433,7 +474,9 @@ public class AudioSubtitleHelper {
         try {
             if (prefs.mAudioLangSetting == LanguagesAudio.ORIGINAL && isNonEmptyTrim(originalLangCode)) {
                 audioCode = getISO3LanguageCode(originalLangCode);
-            } else if (prefs.mAudioLangSetting != LanguagesAudio.AUTO && prefs.mAudioLangSetting != LanguagesAudio.DEFAULT && prefs.mAudioLangSetting != LanguagesAudio.ORIGINAL) {
+            } else if (prefs.mAudioLangSetting != LanguagesAudio.AUTO && prefs.mAudioLangSetting != LanguagesAudio.DEFAULT && prefs.mAudioLangSetting != LanguagesAudio.ORIGINAL && prefs.mAudioLangSetting != LanguagesAudio.DEVICE) {
+                // DEVICE is not a language tag ("device") and resolving it throws MissingResourceException;
+                // it also means "let the player decide", so no audio language filter applies here.
                 audioCode = Locale.forLanguageTag(prefs.mAudioLangSetting.getLang()).getISO3Language();
             }
             if (prefs.mSubtitleLangSetting != LanguagesSubtitle.AUTO) {
@@ -445,10 +488,34 @@ public class AudioSubtitleHelper {
         }
 
         Pair<MediaStream, Integer> audIdx = null;
-        Pair<MediaStream, Integer> subIdx = null;
 
-        // AUDIO logic
-        // NOTE: Anime seem to use "kor" == "jpn" loosely!
+        // NOTE: audio selection is decoupled from subtitles: "DEVICE" audio keeps its player-side semantics, but the subtitle index is still selected
+        if (prefs.mAudioLangSetting != LanguagesAudio.DEVICE) {
+            audIdx = selectBestAudio(mediaStreams, prefs, audioCode);
+            if (audIdx == null) {
+                Timber.w("Could not find good audio track, skipping!");
+                return null;
+            }
+        }
+
+        Pair<MediaStream, Integer> subIdx = null;
+        if (numTracks.second > 0) { // only if we have subs
+            subIdx = selectBestSubtitle(mediaStreams, prefs, userConfiguration, audIdx, subtitleCode);
+        }
+
+        String audioName = audIdx != null ? audIdx.first.getDisplayTitle() : null;
+        String subName = null;
+        if (subIdx != null && subIdx.first != null) {
+            subName = subIdx.first.getDisplayTitle();
+        }
+        Timber.d("getBestAudioSubtitleIdx audio: <%s> subtitle: <%s> Tmdb: <%s>", audioName, subName, originalLangCode);
+        return new Pair<>(audIdx, subIdx);
+    }
+
+    // NOTE: Anime seem to use "kor" == "jpn" loosely!
+    @Nullable
+    private static Pair<MediaStream, Integer> selectBestAudio(@NonNull ArrayList<MediaStream> mediaStreams, @NonNull AudioSubPref prefs, @Nullable String audioCode) {
+        Pair<MediaStream, Integer> audIdx = null;
         if (prefs.mAudioLangSetting == LanguagesAudio.ORIGINAL) {
             ArrayList<Pair<MediaStream, Integer>> originalDefaultAudioTracks = getDefaultStreams(mediaStreams, MediaStreamType.Audio, audioCode);
             if (originalDefaultAudioTracks.isEmpty() && "kor".equals(audioCode)) { // fallback
@@ -498,97 +565,147 @@ public class AudioSubtitleHelper {
                 }
             }
         }
-        if (audIdx == null) {
-            Timber.w("Could not find good audio track, skipping!");
+        return audIdx;
+    }
+
+    // NOTE: Jellyfin user config first (UserConfiguration), then the explicit app-local pref, then the legacy heuristic
+    @Nullable
+    private static Pair<MediaStream, Integer> selectBestSubtitle(@NonNull ArrayList<MediaStream> mediaStreams, @NonNull AudioSubPref prefs, @Nullable UserConfiguration userConfiguration, @Nullable Pair<MediaStream, Integer> audIdx, @NonNull String subtitleCode) {
+        if (prefs.mSubtitleLangSetting != LanguagesSubtitle.AUTO) {
+            return selectLegacySubtitle(mediaStreams, prefs, audIdx, subtitleCode); // explicit app-local setting wins over the server config
+        }
+        SubtitlePlaybackMode subtitleMode = userConfiguration != null ? userConfiguration.getSubtitleMode() : null;
+        String serverLangPref = userConfiguration != null ? getISO3LanguageCode(userConfiguration.getSubtitleLanguagePreference()) : null;
+        if (subtitleMode == SubtitlePlaybackMode.NONE) {
+            return new Pair<>(null, SUBTITLE_DISABLED); // Jellyfin: subtitles off
+        }
+        boolean jellyfinRule = (subtitleMode == SubtitlePlaybackMode.DEFAULT) || isNonEmptyTrim(serverLangPref);
+        if (!jellyfinRule) {
+            return selectLegacySubtitle(mediaStreams, prefs, audIdx, subtitleCode);
+        }
+        // Jellyfin rule: honour SubtitleLanguagePreference as filter and prefer the IsDefault flagged track
+        if (subtitleMode == SubtitlePlaybackMode.DEFAULT && !hasDefaultSubtitle(mediaStreams)) {
+            return new Pair<>(null, SUBTITLE_DISABLED); // Jellyfin selects no subtitle without an IsDefault flagged track
+        }
+        Pair<MediaStream, Integer> bestSubIdx = pickBestSubtitle(mediaStreams, prefs, serverLangPref);
+        return bestSubIdx != null ? bestSubIdx : new Pair<>(null, SUBTITLE_DISABLED);
+    }
+
+    private static boolean hasDefaultSubtitle(@Nullable ArrayList<MediaStream> mediaStreams) {
+        if (isEmpty(mediaStreams)) {
+            return false;
+        }
+        for (MediaStream stream : mediaStreams) {
+            // NOTE: forced tracks count too, so a lone IsDefault forced track does not disable subtitles (it is just never picked as regular subtitle)
+            if (stream.getType() == MediaStreamType.Subtitle && !stream.getIsExternal() && isDefaultTrack(stream)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // best non-forced subtitle: IsDefault flagged tracks win over codec/title merits, equal merit resolves Simplified titles first, then natural order
+    @Nullable
+    private static Pair<MediaStream, Integer> pickBestSubtitle(@NonNull ArrayList<MediaStream> mediaStreams, @NonNull AudioSubPref prefs, @Nullable String langCodeFilter) {
+        TreeMap<Integer, Pair<MediaStream, Integer>> subtitleMerits = evaluateMediaStreams(mediaStreams, prefs, MediaStreamType.Subtitle, langCodeFilter, true, false);
+        if (subtitleMerits.isEmpty() && isNonEmptyTrim(langCodeFilter)) {
+            subtitleMerits = evaluateMediaStreams(mediaStreams, prefs, MediaStreamType.Subtitle, null, true, false); // assume bad language tagged subs
+        }
+        if (subtitleMerits.isEmpty()) {
             return null;
         }
+        TreeMap<Integer, Pair<MediaStream, Integer>> defaultMerits = new TreeMap<>();
+        for (Map.Entry<Integer, Pair<MediaStream, Integer>> entry : subtitleMerits.entrySet()) {
+            if (isDefaultTrack(entry.getValue().first)) {
+                defaultMerits.put(entry.getKey(), entry.getValue());
+            }
+        }
+        if (!defaultMerits.isEmpty()) {
+            subtitleMerits = defaultMerits; // Jellyfin: prefer the IsDefault flagged track over any weighted track
+        }
+        return subtitleMerits.lastEntry().getValue();
+    }
 
-        if (numTracks.second > 0) { // only if we have subs
-            // SUBTITLE logic
-            if (isSameLanguage(audIdx.first, subtitleCode)) { // handle audio == sub lang
-                // try SDH/Caption first
-                if (prefs.mPreferSdhSubs) {
-                    ArrayList<Pair<MediaStream, Integer>> nativeSDHSubTracks = getSDHStreams(mediaStreams, subtitleCode);
-                    if (nativeSDHSubTracks.isEmpty()) {
-                        nativeSDHSubTracks = getCaptionStreams(mediaStreams, subtitleCode);
-                    }
-                    if (!nativeSDHSubTracks.isEmpty()) {
-                        subIdx = nativeSDHSubTracks.get(0); // found native sdh/caption subtitles
-                    }
+    @Nullable
+    private static Pair<MediaStream, Integer> selectLegacySubtitle(@NonNull ArrayList<MediaStream> mediaStreams, @NonNull AudioSubPref prefs, @Nullable Pair<MediaStream, Integer> audIdx, @NonNull String subtitleCode) {
+        Pair<MediaStream, Integer> subIdx = null;
+        // SUBTITLE logic
+        if (audIdx != null && isSameLanguage(audIdx.first, subtitleCode)) { // handle audio == sub lang
+            // try SDH/Caption first
+            if (prefs.mPreferSdhSubs) {
+                ArrayList<Pair<MediaStream, Integer>> nativeSDHSubTracks = getSDHStreams(mediaStreams, subtitleCode);
+                if (nativeSDHSubTracks.isEmpty()) {
+                    nativeSDHSubTracks = getCaptionStreams(mediaStreams, subtitleCode);
                 }
-                // try forced next
-                if (subIdx == null && !prefs.mNoForcedSubs) {
-                    ArrayList<Pair<MediaStream, Integer>> nativeForcedSubTracks = getForcedStreams(mediaStreams, MediaStreamType.Subtitle, subtitleCode);
-                    if (!nativeForcedSubTracks.isEmpty()) {
-                        subIdx = nativeForcedSubTracks.get(0); // found native forced subtitles
-                    }
+                if (!nativeSDHSubTracks.isEmpty()) {
+                    subIdx = nativeSDHSubTracks.get(0); // found native sdh/caption subtitles
                 }
-                // find good same language subtitles
-                if (subIdx == null && prefs.mAllowSameLanguageSubs) {
-                    TreeMap<Integer, Pair<MediaStream, Integer>> nativeSubtitleMerits = evaluateMediaStreams(mediaStreams, prefs, MediaStreamType.Subtitle, subtitleCode, true, false);
-                    if (!nativeSubtitleMerits.isEmpty()) {
-                        subIdx = nativeSubtitleMerits.lastEntry().getValue(); // found native filtered subtitle
-                    }
+            }
+            // try forced next
+            if (subIdx == null && !prefs.mNoForcedSubs) {
+                ArrayList<Pair<MediaStream, Integer>> nativeForcedSubTracks = getForcedStreams(mediaStreams, MediaStreamType.Subtitle, subtitleCode);
+                if (!nativeForcedSubTracks.isEmpty()) {
+                    subIdx = nativeForcedSubTracks.get(0); // found native forced subtitles
                 }
-                // disable subs
-                if (subIdx == null) {
-                    subIdx = new Pair<>(null, SUBTITLE_DISABLED);
+            }
+            // find good same language subtitles
+            if (subIdx == null && prefs.mAllowSameLanguageSubs) {
+                TreeMap<Integer, Pair<MediaStream, Integer>> nativeSubtitleMerits = evaluateMediaStreams(mediaStreams, prefs, MediaStreamType.Subtitle, subtitleCode, true, false);
+                if (!nativeSubtitleMerits.isEmpty()) {
+                    subIdx = nativeSubtitleMerits.lastEntry().getValue(); // found native filtered subtitle
                 }
-            } else { // handle audio != sub lang
-                // try SDH/Caption first
-                if (prefs.mPreferSdhSubs) {
-                    ArrayList<Pair<MediaStream, Integer>> nativeSDHSubTracks = getSDHStreams(mediaStreams, subtitleCode);
-                    if (nativeSDHSubTracks.isEmpty()) {
-                        nativeSDHSubTracks = getCaptionStreams(mediaStreams, subtitleCode);
-                    }
-                    if (!nativeSDHSubTracks.isEmpty()) {
-                        subIdx = nativeSDHSubTracks.get(0); // found native sdh/caption subtitles
-                    }
+            }
+            // disable subs
+            if (subIdx == null) {
+                subIdx = new Pair<>(null, SUBTITLE_DISABLED);
+            }
+        } else { // handle audio != sub lang
+            // try SDH/Caption first
+            if (prefs.mPreferSdhSubs) {
+                ArrayList<Pair<MediaStream, Integer>> nativeSDHSubTracks = getSDHStreams(mediaStreams, subtitleCode);
+                if (nativeSDHSubTracks.isEmpty()) {
+                    nativeSDHSubTracks = getCaptionStreams(mediaStreams, subtitleCode);
                 }
-                // try find any native subs
-                if (subIdx == null) {
-                    TreeMap<Integer, Pair<MediaStream, Integer>> nativeSubtitleMerits = evaluateMediaStreams(mediaStreams, prefs, MediaStreamType.Subtitle, subtitleCode, true, false);
-                    if (nativeSubtitleMerits.isEmpty()) { // try native low quality subs
-                        nativeSubtitleMerits = evaluateMediaStreams(mediaStreams, prefs, MediaStreamType.Subtitle, subtitleCode, true, true);
-                    }
-                    if (nativeSubtitleMerits.isEmpty()) { // try native forced (wrongly tagged forced subs)
-                        nativeSubtitleMerits = evaluateMediaStreams(mediaStreams, prefs, MediaStreamType.Subtitle, subtitleCode, false, true);
-                    }
-                    if (!nativeSubtitleMerits.isEmpty()) {
-                        subIdx = nativeSubtitleMerits.lastEntry().getValue(); // found native subtitle
-                    }
+                if (!nativeSDHSubTracks.isEmpty()) {
+                    subIdx = nativeSDHSubTracks.get(0); // found native sdh/caption subtitles
                 }
-                // FALLBACK: assume bad language tagged subs first
-                if (subIdx == null) {
-                    TreeMap<Integer, Pair<MediaStream, Integer>> anySubtitleMerits = evaluateMediaStreams(mediaStreams, prefs, MediaStreamType.Subtitle, null, true, false);
-                    if (!anySubtitleMerits.isEmpty()) {
-                        subIdx = anySubtitleMerits.lastEntry().getValue(); // found ANY filtered subtitle track
-                    }
+            }
+            // try find any native subs
+            if (subIdx == null) {
+                TreeMap<Integer, Pair<MediaStream, Integer>> nativeSubtitleMerits = evaluateMediaStreams(mediaStreams, prefs, MediaStreamType.Subtitle, subtitleCode, true, false);
+                if (nativeSubtitleMerits.isEmpty()) { // try native low quality subs
+                    nativeSubtitleMerits = evaluateMediaStreams(mediaStreams, prefs, MediaStreamType.Subtitle, subtitleCode, true, true);
                 }
-                // FALLBACK: try ANY forced
-                if (subIdx == null && !prefs.mNoForcedSubs) {
-                    ArrayList<Pair<MediaStream, Integer>> anyForcedSubTracks = getForcedStreams(mediaStreams, MediaStreamType.Subtitle, null);
-                    if (!anyForcedSubTracks.isEmpty()) {
-                        subIdx = anyForcedSubTracks.get(0); // found ANY forced subtitle
-                    }
+                if (nativeSubtitleMerits.isEmpty()) { // try native forced (wrongly tagged forced subs)
+                    nativeSubtitleMerits = evaluateMediaStreams(mediaStreams, prefs, MediaStreamType.Subtitle, subtitleCode, false, true);
                 }
-                // now ANY unfiltered would be left?
-                if (subIdx == null) {
-                    TreeMap<Integer, Pair<MediaStream, Integer>> anySubtitleMerits = evaluateMediaStreams(mediaStreams, prefs, MediaStreamType.Subtitle, null, true, true);
-                    if (!anySubtitleMerits.isEmpty()) {
-                        subIdx = anySubtitleMerits.lastEntry().getValue(); // found ANY subtitle track
-                    }
+                if (!nativeSubtitleMerits.isEmpty()) {
+                    subIdx = nativeSubtitleMerits.lastEntry().getValue(); // found native subtitle
+                }
+            }
+            // FALLBACK: assume bad language tagged subs first
+            if (subIdx == null) {
+                TreeMap<Integer, Pair<MediaStream, Integer>> anySubtitleMerits = evaluateMediaStreams(mediaStreams, prefs, MediaStreamType.Subtitle, null, true, false);
+                if (!anySubtitleMerits.isEmpty()) {
+                    subIdx = anySubtitleMerits.lastEntry().getValue(); // found ANY filtered subtitle track
+                }
+            }
+            // FALLBACK: try ANY forced
+            if (subIdx == null && !prefs.mNoForcedSubs) {
+                ArrayList<Pair<MediaStream, Integer>> anyForcedSubTracks = getForcedStreams(mediaStreams, MediaStreamType.Subtitle, null);
+                if (!anyForcedSubTracks.isEmpty()) {
+                    subIdx = anyForcedSubTracks.get(0); // found ANY forced subtitle
+                }
+            }
+            // now ANY unfiltered would be left?
+            if (subIdx == null) {
+                TreeMap<Integer, Pair<MediaStream, Integer>> anySubtitleMerits = evaluateMediaStreams(mediaStreams, prefs, MediaStreamType.Subtitle, null, true, true);
+                if (!anySubtitleMerits.isEmpty()) {
+                    subIdx = anySubtitleMerits.lastEntry().getValue(); // found ANY subtitle track
                 }
             }
         }
-
-        String audioName = audIdx.first.getDisplayTitle();
-        String subName = null;
-        if (subIdx != null && subIdx.first != null) {
-            subName = subIdx.first.getDisplayTitle();
-        }
-        Timber.d("getBestAudioSubtitleIdx audio: <%s> subtitle: <%s> Tmdb: <%s>", audioName, subName, originalLangCode);
-        return new Pair<>(audIdx, subIdx);
+        return subIdx;
     }
 
     @NonNull

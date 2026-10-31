@@ -60,7 +60,7 @@ val appModule = module {
 		get<JellyfinSdk>().createApi()
 	}
 
-	single { get<ApiClient>().ws() }
+	single { get<ApiClient>().webSocket }
 
 	single { SocketHandler(get(), get(), get(), get(), get(), get()) }
 

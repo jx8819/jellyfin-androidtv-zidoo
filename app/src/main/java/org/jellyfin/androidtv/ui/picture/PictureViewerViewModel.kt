@@ -14,6 +14,7 @@ import org.jellyfin.sdk.api.client.extensions.itemsApi
 import org.jellyfin.sdk.api.client.extensions.userLibraryApi
 import org.jellyfin.sdk.model.api.BaseItemDto
 import org.jellyfin.sdk.model.api.BaseItemKind
+import org.jellyfin.sdk.model.api.ItemSortBy
 import org.jellyfin.sdk.model.api.ItemFields
 import org.jellyfin.sdk.model.api.SortOrder
 import java.util.UUID
@@ -31,11 +32,11 @@ class PictureViewerViewModel(private val api: ApiClient) : ViewModel() {
 		val itemResponse by api.userLibraryApi.getItem(itemId = id)
 		_currentItem.value = itemResponse
 
-		val albumResponse by api.itemsApi.getItemsByUserId(
+		val albumResponse by api.itemsApi.getItems(
 			parentId = itemResponse.parentId,
 			includeItemTypes = setOf(BaseItemKind.PHOTO),
 			fields = setOf(ItemFields.PRIMARY_IMAGE_ASPECT_RATIO),
-			sortBy = sortBy.split(","),
+			sortBy = sortBy.split(",").map { ItemSortBy.fromName(it) },
 			sortOrder = listOf(sortOrder),
 		)
 		album = albumResponse.items.orEmpty()

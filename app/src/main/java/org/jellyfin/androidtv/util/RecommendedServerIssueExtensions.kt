@@ -17,11 +17,14 @@ private fun ApiClientException.getFriendlyMessage(context: Context): String? = w
  */
 fun RecommendedServerIssue.getFriendlyMessage(context: Context): String = when (this) {
 	is RecommendedServerIssue.MissingSystemInfo -> throwable?.let { throwable ->
-		// Search for exceptions we want to display but the SDK does not have
-		// an RecommendedServerIssue member for
+		// Preserve more specific transport details if present in the failure.
 		if (throwable is ApiClientException) throwable.getFriendlyMessage(context)
 		else null
 	} ?: context.getString(R.string.server_issue_unable_to_connect)
+
+	is RecommendedServerIssue.SecureConnectionFailed -> context.getString(R.string.server_issue_ssl_handshake)
+
+	is RecommendedServerIssue.ServerUnreachable -> context.getString(R.string.server_issue_timeout)
 
 	is RecommendedServerIssue.InvalidProductName -> context.getString(R.string.server_issue_invalid_product)
 
@@ -49,6 +52,8 @@ fun RecommendedServerIssue.getFriendlyMessage(context: Context): String = when (
 fun Collection<RecommendedServerIssue>.getSummary(context: Context): String? = maxByOrNull {
 	// Assign a "score" to each issue type so we can return the most important one
 	when (it) {
+		is RecommendedServerIssue.SecureConnectionFailed -> 7
+		is RecommendedServerIssue.ServerUnreachable -> 6
 		is RecommendedServerIssue.MissingSystemInfo -> 5
 		is RecommendedServerIssue.UnsupportedServerVersion -> 4
 		is RecommendedServerIssue.OutdatedServerVersion -> 3

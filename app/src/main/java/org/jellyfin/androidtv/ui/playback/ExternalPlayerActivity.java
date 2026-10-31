@@ -654,7 +654,7 @@ public class ExternalPlayerActivity extends FragmentActivity {
             }
         } else {
             String orgLang = mTmdbTask != null ? mTmdbTask.getOriginalLanguage(mCurrentItem.getId(), mCurrentItem.getSeriesId()) : null;
-            Pair<Integer, Integer> audioSubIdx = getAbsoluteAudioSubIdxSafe(getBestAudioSubtitleIdx(mCurrentMediaSource.getMediaStreams(), mPrefs, orgLang));
+            Pair<Integer, Integer> audioSubIdx = getAbsoluteAudioSubIdxSafe(getBestAudioSubtitleIdx(mCurrentMediaSource.getMediaStreams(), mPrefs, orgLang, KoinJavaComponent.<UserRepository>get(UserRepository.class).getCurrentUser().getValue().getConfiguration()));
             // Get playback info and then decide on which activity to start
             KoinJavaComponent.<PlaybackManager>get(PlaybackManager.class).getVideoStreamInfo(api.getValue().getDeviceInfo(), buildZidooPlayerOptions(audioSubIdx.first, audioSubIdx.second), mSeekPosition * RUNTIME_TICKS_TO_MS, apiClient.getValue(), new Response<StreamInfo>() {
                 @Override
@@ -933,19 +933,23 @@ public class ExternalPlayerActivity extends FragmentActivity {
         } else {
             zidooIntent.putExtra(API_ZIDOO_FROM_START, true);
         }
-        if (mPrefs.mAudioLangSetting != LanguagesAudio.DEVICE) {
-            String orgLang = mTmdbTask != null ? mTmdbTask.getOriginalLanguage(mCurrentItem.getId(), mCurrentItem.getSeriesId()) : null;
-            Pair<Integer, Integer> audioSubIdx = ZidooTask.convertToZidooIndex(getBestAudioSubtitleIdx(mCurrentStreamInfo.getMediaSource().getMediaStreams(), mPrefs, orgLang));
-            if (mCurrentStreamInfo.getPlayMethod() == PlayMethod.Transcode) {
-                int subIdx = audioSubIdx.second > 0 ? 1 : 0; // we have only one sub here
+        // NOTE: the subtitle index is always set ("off" works correctly vs Zidoo Bookmarks logic), only "DEVICE" audio stays player-side
+        String orgLang = mTmdbTask != null ? mTmdbTask.getOriginalLanguage(mCurrentItem.getId(), mCurrentItem.getSeriesId()) : null;
+        Pair<Integer, Integer> audioSubIdx = ZidooTask.convertToZidooIndex(getBestAudioSubtitleIdx(mCurrentStreamInfo.getMediaSource().getMediaStreams(), mPrefs, orgLang, KoinJavaComponent.<UserRepository>get(UserRepository.class).getCurrentUser().getValue().getConfiguration()));
+        boolean deviceAudio = mPrefs.mAudioLangSetting == LanguagesAudio.DEVICE;
+        if (mCurrentStreamInfo.getPlayMethod() == PlayMethod.Transcode) {
+            int subIdx = audioSubIdx.second > 0 ? 1 : 0; // we have only one sub here
+            if (!deviceAudio) {
                 zidooIntent.putExtra(API_ZIDOO_AUDIO_IDX, 0); // only one track
-                zidooIntent.putExtra(API_ZIDOO_SUBTITLE_IDX, subIdx);
-                Timber.d("Intent audioIdx <%s> subIdx <%s>", 0, subIdx);
-            } else {
-                zidooIntent.putExtra(API_ZIDOO_AUDIO_IDX, audioSubIdx.first);
-                zidooIntent.putExtra(API_ZIDOO_SUBTITLE_IDX, audioSubIdx.second); // always set, so "off" works correctly vs Zidoo Bookmarks logic
-                Timber.d("Intent audioIdx <%s> subIdx <%s>", audioSubIdx.first, audioSubIdx.second);
             }
+            zidooIntent.putExtra(API_ZIDOO_SUBTITLE_IDX, subIdx);
+            Timber.d("Intent audioIdx <%s> subIdx <%s>", 0, subIdx);
+        } else {
+            if (!deviceAudio) {
+                zidooIntent.putExtra(API_ZIDOO_AUDIO_IDX, audioSubIdx.first);
+            }
+            zidooIntent.putExtra(API_ZIDOO_SUBTITLE_IDX, audioSubIdx.second); // always set, so "off" works correctly vs Zidoo Bookmarks logic
+            Timber.d("Intent audioIdx <%s> subIdx <%s>", audioSubIdx.first, audioSubIdx.second);
         }
         zidooIntent.putExtra(API_ZIDOO_RETURN_RESULT, true);
 

@@ -66,7 +66,7 @@ import org.jellyfin.apiclient.model.search.SearchQuery;
 import org.jellyfin.sdk.model.api.BaseItemPerson;
 import org.jellyfin.sdk.model.api.SortOrder;
 import org.jellyfin.sdk.model.api.UserDto;
-import org.jellyfin.sdk.model.constant.ItemSortBy;
+import org.jellyfin.sdk.model.api.ItemSortBy;
 import org.koin.java.KoinJavaComponent;
 
 import java.util.ArrayList;
@@ -421,7 +421,7 @@ public class ItemRowAdapter extends ArrayObjectAdapter {
                     }
                     break;
             }
-            if (!ItemSortBy.SortName.equals(option.value)) {
+            if (!ItemSortBy.SORT_NAME.getSerialName().equals(option.value)) {
                 setStartLetter(null);
             }
         }
@@ -626,10 +626,10 @@ public class ItemRowAdapter extends ArrayObjectAdapter {
         itemsLoaded = 0;
         switch (queryType) {
             case Items:
-                if (mSortBy != null && mSortBy.contains(ItemSortBy.DateLastContentAdded) && Arrays.asList(mQuery.getIncludeItemTypes()).contains("Series")) {
+                if (mSortBy != null && mSortBy.contains(ItemSortBy.DATE_LAST_CONTENT_ADDED.getSerialName()) && Arrays.asList(mQuery.getIncludeItemTypes()).contains("Series")) {
                     // Fix for broken DateLastContentAdded fir Series
                     retrieveSeriesSortByLatest(mQuery);
-                } else if (mSortBy != null && mFilters != null && mSortBy.contains(ItemSortBy.SeriesDatePlayed) && mFilters.isUnwatchedOnly()) {
+                } else if (mSortBy != null && mFilters != null && mSortBy.contains(ItemSortBy.SERIES_DATE_PLAYED.getSerialName()) && mFilters.isUnwatchedOnly()) {
                     // Fix for https://github.com/jellyfin/jellyfin/issues/8249
                     mQuery.setFilters(null);
                     retrieve(mQuery);

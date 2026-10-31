@@ -57,7 +57,6 @@ class ImageHelper(private val api: ApiClient)
 
 		return api.imageApi.getUserImageUrl(
 			userId = item.id,
-			imageType = ImageType.PRIMARY,
 			tag = item.primaryImageTag,
 			maxHeight = MAX_PRIMARY_IMAGE_HEIGHT,
 			quality = DEFAULT_IMAGE_QUALITY

@@ -56,6 +56,17 @@ class ZidooPlayerProfile(
 		Codec.Audio.MLP,
 	)
 
+	// Audio codecs the Jellyfin transcoder can actually produce for this HTTP/MKV
+	// transcode path. This is an OUTPUT list, not a decode-capability list: lossless
+	// and raw codecs (TrueHD, MLP, raw PCM variants, WMA/MPA/...) cannot be encoded,
+	// and advertising them makes Jellyfin 10.11 reject the stream request with HTTP 400,
+	// so the Zidoo player never gets a stream at all. Verified against 10.11.11.
+	private val codecsTranscode = buildList {
+		add(Codec.Audio.AC3)
+		add(Codec.Audio.EAC3)
+		if (!forceCompliantSurroundCodecs) add(Codec.Audio.AAC)
+	}.toTypedArray()
+
 	private val codecsVideo = arrayOf(
 		Codec.Video.H264,
 		Codec.Video.HEVC,
@@ -185,11 +196,7 @@ class ZidooPlayerProfile(
 					if (ProfileHelper.deviceHevcCodecProfile?.ContainsCodec(Codec.Video.HEVC, Codec.Container.MKV) == true) add(Codec.Video.HEVC)
 					add(Codec.Video.H264)
 				}.joinToString(",")
-				audioCodec = forcedAudioCodec ?: buildList {
-					addAll(codecsDolby + codecsPcm)
-					if (isDTSEnabled) addAll(codecsDTS)
-					if (!forceCompliantSurroundCodecs) addAll(codecsCommon + codecsRare)
-				}.joinToString(",")
+				audioCodec = forcedAudioCodec ?: codecsTranscode.joinToString(",")
 				copyTimestamps = false
 				maxAudioChannels = forceNumChannels?.toString() ?: "8"
 			},

@@ -13,7 +13,7 @@ import org.jellyfin.apiclient.model.entities.SortOrder;
 import org.jellyfin.apiclient.model.querying.ItemFields;
 import org.jellyfin.apiclient.model.querying.ItemsResult;
 import org.jellyfin.apiclient.model.querying.SimilarItemsQuery;
-import org.jellyfin.sdk.model.constant.ItemSortBy;
+import org.jellyfin.sdk.model.api.ItemSortBy;
 import org.koin.java.KoinJavaComponent;
 
 public class SuggestedMoviesFragment extends EnhancedBrowseFragment {
@@ -30,7 +30,7 @@ public class SuggestedMoviesFragment extends EnhancedBrowseFragment {
         lastPlayed.setIncludeItemTypes(new String[]{"Movie"});
         lastPlayed.setUserId(KoinJavaComponent.<UserRepository>get(UserRepository.class).getCurrentUser().getValue().getId().toString());
         lastPlayed.setSortOrder(SortOrder.Descending);
-        lastPlayed.setSortBy(new String[]{ItemSortBy.DatePlayed});
+        lastPlayed.setSortBy(new String[]{ItemSortBy.DATE_PLAYED.getSerialName()});
         lastPlayed.setLimit(8);
         lastPlayed.setRecursive(true);
 

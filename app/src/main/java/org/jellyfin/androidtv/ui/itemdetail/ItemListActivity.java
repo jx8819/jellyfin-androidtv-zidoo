@@ -53,8 +53,8 @@ import org.jellyfin.apiclient.model.playlists.PlaylistItemQuery;
 import org.jellyfin.apiclient.model.querying.ItemFields;
 import org.jellyfin.apiclient.model.querying.ItemFilter;
 import org.jellyfin.apiclient.model.querying.ItemsResult;
-import org.jellyfin.sdk.model.constant.ItemSortBy;
-import org.jellyfin.sdk.model.constant.MediaType;
+import org.jellyfin.sdk.model.api.ItemSortBy;
+import org.jellyfin.sdk.model.api.MediaType;
 import org.koin.java.KoinJavaComponent;
 
 import java.util.ArrayList;
@@ -202,7 +202,7 @@ public class ItemListActivity extends AppCompatActivity {
         mAudioEventListener.onPlaybackStateChange(mediaManager.getValue().isPlayingAudio() ? PlaybackController.PlaybackState.PLAYING : PlaybackController.PlaybackState.IDLE, mediaManager.getValue().getCurrentAudioItem());
 
         if (!firstTime && dataRefreshService.getValue().getLastPlayback() > lastUpdated.getTimeInMillis()) {
-            if (MediaType.Video.equals(mBaseItem.getMediaType())) {
+            if (MediaType.VIDEO.getSerialName().equals(mBaseItem.getMediaType())) {
                 new Handler().postDelayed(new Runnable() {
                     @Override
                     public void run() {
@@ -279,10 +279,10 @@ public class ItemListActivity extends AppCompatActivity {
             @Override
             public boolean onMenuItemClick(MenuItem item) {
                 switch (row.getItem().getMediaType()) {
-                    case MediaType.Video:
+                    case "Video":
                         mediaManager.getValue().addToVideoQueue(row.getItem());
                         break;
-                    case MediaType.Audio:
+                    case "Audio":
                         PlaybackLauncher playbackLauncher = KoinJavaComponent.<PlaybackLauncher>get(PlaybackLauncher.class);
                         if (playbackLauncher.interceptPlayRequest(ItemListActivity.this, row.getItem())) break;
 
@@ -316,7 +316,7 @@ public class ItemListActivity extends AppCompatActivity {
                 item.setName(getString(R.string.lbl_favorites));
                 item.setOverview(getString(R.string.desc_automatic_fav_songs));
                 item.setPlayAccess(PlayAccess.Full);
-                item.setMediaType(MediaType.Audio);
+                item.setMediaType(MediaType.AUDIO.getSerialName());
                 item.setBaseItemType(BaseItemType.Playlist);
                 item.setIsFolder(true);
                 setBaseItem(item);
@@ -362,7 +362,7 @@ public class ItemListActivity extends AppCompatActivity {
                     favSongs.setIncludeItemTypes(new String[] {"Audio"});
                     favSongs.setRecursive(true);
                     favSongs.setFilters(new ItemFilter[]{ItemFilter.IsFavoriteOrLikes});
-                    favSongs.setSortBy(new String[]{ItemSortBy.Random});
+                    favSongs.setSortBy(new String[]{ItemSortBy.RANDOM.getSerialName()});
                     favSongs.setLimit(150);
                     apiClient.getValue().GetItemsAsync(favSongs, itemResponse);
                     break;
@@ -390,7 +390,7 @@ public class ItemListActivity extends AppCompatActivity {
                     ItemFields.ChildCount
             });
             songs.setIncludeItemTypes(new String[]{"Audio"});
-            songs.setSortBy(new String[] {ItemSortBy.SortName});
+            songs.setSortBy(new String[] {ItemSortBy.SORT_NAME.getSerialName()});
             songs.setLimit(200);
             apiClient.getValue().GetItemsAsync(songs, itemResponse);
         }
@@ -457,7 +457,7 @@ public class ItemListActivity extends AppCompatActivity {
 
         Timber.d("play items: %d, ndx: %d, shuffle: %b", items.size(), ndx, shuffle);
 
-        if (MediaType.Video.equals(mBaseItem.getMediaType())) {
+        if (MediaType.VIDEO.getSerialName().equals(mBaseItem.getMediaType())) {
             if (shuffle) {
                 Collections.shuffle(items);
             }

@@ -389,14 +389,16 @@ abstract class ZidooTask extends PlayerTask {
 
     // idx in zidoo offsets
     protected void setBestTracks() {
-        if (bestAudioSubIdxZidoo == null && mPrefs.mAudioLangSetting != LanguagesAudio.DEVICE) {
+        if (bestAudioSubIdxZidoo == null) {
             // delay until needed
-            Pair<Integer, Integer> audioSubIdx = convertToZidooIndex(getBestAudioSubtitleIdx(mStreamInfo.getMediaSource().getMediaStreams(), mPrefs, mTmdbOrgLang));
+            // NOTE: subtitle selection is decoupled from the audio language setting, "DEVICE" audio keeps its player-side semantics
+            Pair<Integer, Integer> audioSubIdx = convertToZidooIndex(getBestAudioSubtitleIdx(mStreamInfo.getMediaSource().getMediaStreams(), mPrefs, mTmdbOrgLang, KoinJavaComponent.<UserRepository>get(UserRepository.class).getCurrentUser().getValue().getConfiguration()));
+            boolean deviceAudio = mPrefs.mAudioLangSetting == LanguagesAudio.DEVICE;
             if (mStreamInfo.getPlayMethod() == PlayMethod.Transcode) {
                 int subIdx = audioSubIdx.second > 0 ? 1 : 0; // we have only one sub here
-                bestAudioSubIdxZidoo = new Pair<>(0, subIdx);
+                bestAudioSubIdxZidoo = deviceAudio ? new Pair<Integer, Integer>(null, subIdx) : new Pair<Integer, Integer>(0, subIdx);
             } else {
-                bestAudioSubIdxZidoo = audioSubIdx;
+                bestAudioSubIdxZidoo = deviceAudio ? new Pair<Integer, Integer>(null, audioSubIdx.second) : audioSubIdx;
             }
         }
         if (bestAudioSubIdxZidoo != null) {

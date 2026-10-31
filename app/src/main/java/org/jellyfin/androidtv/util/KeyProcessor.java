@@ -29,8 +29,8 @@ import org.jellyfin.apiclient.model.dto.UserItemDataDto;
 import org.jellyfin.apiclient.model.entities.SortOrder;
 import org.jellyfin.apiclient.model.querying.ItemFilter;
 import org.jellyfin.apiclient.model.querying.ItemsResult;
-import org.jellyfin.sdk.model.constant.ItemSortBy;
-import org.jellyfin.sdk.model.constant.MediaType;
+import org.jellyfin.sdk.model.api.ItemSortBy;
+import org.jellyfin.sdk.model.api.MediaType;
 import org.koin.java.KoinJavaComponent;
 
 import java.util.List;
@@ -124,17 +124,17 @@ public class KeyProcessor {
                         break;
                     case SearchHint:
                         switch (rowItem.getSearchHint().getType()) {
-                            case "Movie":
-                            case "Episode":
-                            case "TvChannel":
-                            case "Video":
-                            case "Program":
+                            case MOVIE:
+                            case EPISODE:
+                            case TV_CHANNEL:
+                            case VIDEO:
+                            case PROGRAM:
                                 // retrieve full item and play
                                 PlaybackHelper.retrieveAndPlay(rowItem.getItemId(), false, activity);
                                 return true;
-                            case "Series":
-                            case "Season":
-                            case "BoxSet":
+                            case SERIES:
+                            case SEASON:
+                            case BOX_SET:
                                 createPlayMenu(rowItem.getBaseItem(), true, false, activity);
                                 return true;
                         }
@@ -260,7 +260,7 @@ public class KeyProcessor {
             isMusic = item.getBaseItemType() == BaseItemType.MusicAlbum
                     || item.getBaseItemType() == BaseItemType.MusicArtist
                     || item.getBaseItemType() == BaseItemType.Audio
-                    || (item.getBaseItemType() == BaseItemType.Playlist && MediaType.Audio.equals(item.getMediaType()));
+                    || (item.getBaseItemType() == BaseItemType.Playlist && MediaType.AUDIO.getSerialName().equals(item.getMediaType()));
 
             if (isMusic) {
                 menu.getMenu().add(0, MENU_ADD_QUEUE, order++, R.string.lbl_add_to_queue);
@@ -374,7 +374,7 @@ public class KeyProcessor {
                     query.setRecursive(true);
                     query.setIsVirtualUnaired(false);
                     query.setIsMissing(false);
-                    query.setSortBy(new String[]{ItemSortBy.SortName});
+                    query.setSortBy(new String[]{ItemSortBy.SORT_NAME.getSerialName()});
                     query.setSortOrder(SortOrder.Ascending);
                     query.setLimit(1);
                     query.setExcludeItemTypes(new String[] {"Series","Season","Folder","MusicAlbum","Playlist","BoxSet"});

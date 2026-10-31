@@ -11,7 +11,7 @@ plugins {
 
 android {
 	namespace = "org.jellyfin.androidtv"
-	compileSdk = gradleLocalProperties(rootDir).getProperty("COMPILE_SDK_NR", "32").toInt()
+	compileSdk = gradleLocalProperties(rootDir).getProperty("COMPILE_SDK_NR", "34").toInt()
 	ndkVersion = "26.1.10909125"
 
 	defaultConfig {
@@ -19,7 +19,7 @@ android {
 		targetSdk = gradleLocalProperties(rootDir).getProperty("TARGET_SDK_NR", "32").toInt()
 
 		// Release version
-		applicationId = namespace
+		applicationId = "org.jellyfin.androidtv.zidoo"
 		versionName = project.getVersionName()
 		versionCode = getVersionCode(versionName!!)
 		setProperty("archivesBaseName", "jellyfin-androidtv-v$versionName")
@@ -38,17 +38,17 @@ android {
 
 	compileOptions {
 		isCoreLibraryDesugaringEnabled = true
-        sourceCompatibility = JavaVersion.valueOf(gradleLocalProperties(rootDir).getProperty("JAVA_VERSION", "VERSION_1_8"))
-        targetCompatibility = JavaVersion.valueOf(gradleLocalProperties(rootDir).getProperty("JAVA_VERSION", "VERSION_1_8"))
+        sourceCompatibility = JavaVersion.valueOf(gradleLocalProperties(rootDir).getProperty("JAVA_VERSION", "VERSION_17"))
+        targetCompatibility = JavaVersion.valueOf(gradleLocalProperties(rootDir).getProperty("JAVA_VERSION", "VERSION_17"))
     }
 
 	kotlinOptions {
-		jvmTarget = gradleLocalProperties(rootDir).getProperty("KOTLIN_JVM_TARGET", "1.8")
+		jvmTarget = gradleLocalProperties(rootDir).getProperty("KOTLIN_JVM_TARGET", "17")
 	}
 
 	kotlin {
 		jvmToolchain {
-			(this as JavaToolchainSpec).languageVersion.set(JavaLanguageVersion.of(gradleLocalProperties(rootDir).getProperty("JAVA_VERSION_NR", "8")))
+			(this as JavaToolchainSpec).languageVersion.set(JavaLanguageVersion.of(gradleLocalProperties(rootDir).getProperty("JAVA_VERSION_NR", "17")))
 		}
 	}
 
@@ -60,7 +60,7 @@ android {
 
 	signingConfigs {
 		create("release") {
-			storeFile = file(gradleLocalProperties(rootDir).getProperty("STOREFILE"))
+			storeFile = gradleLocalProperties(rootDir).getProperty("STOREFILE")?.let { file(it) }
 			keyAlias = gradleLocalProperties(rootDir).getProperty("KEYALIAS")
 			keyPassword = gradleLocalProperties(rootDir).getProperty("KEYPASSWORD")
 			storePassword = gradleLocalProperties(rootDir).getProperty("STOREPASSWORD")
@@ -70,7 +70,7 @@ android {
 	buildTypes {
 		getByName("release") {
 			matchingFallbacks += listOf()
-			signingConfig = signingConfigs.getByName("release")
+			signingConfig = signingConfigs.getByName("release").takeIf { it.storeFile != null }
 		}
 
 		val release by getting {
@@ -78,12 +78,12 @@ android {
 			isShrinkResources = false
 //			isJniDebuggable = false
 			// Set package names used in various XML files
-			resValue("string", "app_id", namespace!!)
-			resValue("string", "app_search_suggest_authority", "${namespace}.content")
-			resValue("string", "app_search_suggest_intent_data", "content://${namespace}.content/intent")
+			resValue("string", "app_id", defaultConfig.applicationId!!)
+			resValue("string", "app_search_suggest_authority", "${defaultConfig.applicationId}.content")
+			resValue("string", "app_search_suggest_intent_data", "content://${defaultConfig.applicationId}.content/intent")
 
 			// Set flavored application name
-			resValue("string", "app_name", "Jellyfin")
+			resValue("string", "app_name", "Jellyfin Zidoo")
 
 			buildConfigField("boolean", "DEVELOPMENT", "false")
 		}
@@ -93,12 +93,12 @@ android {
 			applicationIdSuffix = ".debug"
 
 			// Set package names used in various XML files
-			resValue("string", "app_id", namespace + applicationIdSuffix)
-			resValue("string", "app_search_suggest_authority", "${namespace + applicationIdSuffix}.content")
-			resValue("string", "app_search_suggest_intent_data", "content://${namespace + applicationIdSuffix}.content/intent")
+			resValue("string", "app_id", defaultConfig.applicationId + applicationIdSuffix)
+			resValue("string", "app_search_suggest_authority", "${defaultConfig.applicationId + applicationIdSuffix}.content")
+			resValue("string", "app_search_suggest_intent_data", "content://${defaultConfig.applicationId + applicationIdSuffix}.content/intent")
 
 			// Set flavored application name
-			resValue("string", "app_name", "Jellyfin Debug")
+			resValue("string", "app_name", "Jellyfin Zidoo Debug")
 
 			buildConfigField("boolean", "DEVELOPMENT", (defaultConfig.versionCode!! < 100).toString())
 		}

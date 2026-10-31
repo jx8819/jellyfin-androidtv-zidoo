@@ -12,7 +12,8 @@ import org.jellyfin.apiclient.model.querying.ItemFields
 import org.jellyfin.apiclient.model.querying.ItemsResult
 import org.jellyfin.apiclient.model.querying.LatestItemsQuery
 import org.jellyfin.sdk.model.api.BaseItemKind
-import org.jellyfin.sdk.model.constant.CollectionType
+import org.jellyfin.sdk.model.api.CollectionType
+import org.jellyfin.sdk.model.serializer.toUUID
 
 class HomeFragmentLatestRow(
 	private val context: Context,
@@ -27,7 +28,10 @@ class HomeFragmentLatestRow(
 		// Create a list of views to include
 		val latestItemsExcludes = configuration?.latestItemsExcludes.orEmpty()
 		views.items
-			.filterNot { item -> item.collectionType in EXCLUDED_COLLECTION_TYPES || item.id in latestItemsExcludes }
+			.filterNot { item ->
+				item.collectionType in EXCLUDED_COLLECTION_TYPES ||
+					(latestItemsExcludes.isNotEmpty() && item.id.toUUID() in latestItemsExcludes)
+			}
 			.map { item ->
 				// Create query and add it to a new row
 				val query = LatestItemsQuery().apply {
@@ -67,10 +71,10 @@ class HomeFragmentLatestRow(
 	companion object {
 		// Collections excluded from latest row based on app support and common sense
 		private val EXCLUDED_COLLECTION_TYPES = arrayOf(
-			CollectionType.Playlists,
-			CollectionType.LiveTv,
-			CollectionType.BoxSets,
-			CollectionType.Books,
+			CollectionType.PLAYLISTS.serialName,
+			CollectionType.LIVETV.serialName,
+			CollectionType.BOXSETS.serialName,
+			CollectionType.BOOKS.serialName,
 		)
 
 		// Maximum amount of items loaded for a row

@@ -18,6 +18,7 @@ import org.jellyfin.apiclient.model.livetv.SeriesTimerInfoDto
 import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.api.client.extensions.imageApi
 import org.jellyfin.sdk.model.api.ImageType
+import org.jellyfin.sdk.model.api.PersonKind
 import org.jellyfin.sdk.model.serializer.toUUID
 import org.koin.java.KoinJavaComponent.inject
 import strings.isNotNullOrBlank
@@ -148,7 +149,7 @@ fun org.jellyfin.sdk.model.api.BaseItemDto.getProgramSubText(context: Context) =
 	))
 }
 
-fun BaseItemDto.getFirstPerson(searchedType: String) =
+fun BaseItemDto.getFirstPerson(searchedType: PersonKind) =
 	people?.asSdk()?.firstOrNull { it.type == searchedType }
 
 fun BaseItemDto.buildChapterItems(): List<ChapterItemInfo> {

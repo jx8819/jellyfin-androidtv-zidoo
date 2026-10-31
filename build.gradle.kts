@@ -6,7 +6,7 @@ plugins {
 }
 
 java {
-	toolchain.languageVersion.set(JavaLanguageVersion.of(gradleLocalProperties(rootDir).getProperty("JAVA_VERSION_NR", "8")))
+	toolchain.languageVersion.set(JavaLanguageVersion.of(gradleLocalProperties(rootDir).getProperty("JAVA_VERSION_NR", "17")))
 }
 
 buildscript {

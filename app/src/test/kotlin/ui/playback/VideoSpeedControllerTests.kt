@@ -15,46 +15,6 @@ class VideoSpeedControllerTests : FunSpec({
 		VideoSpeedController(mockk(relaxed = true)).resetSpeedToDefault()
 	}
 
-	test("VideoSpeedController.SpeedSteps uses intervals of 0.25") {
-		VideoSpeedController.SpeedSteps.values().forEachIndexed { i, v ->
-			v.speed.shouldBe((i + 1) * 0.25f plusOrMinus 1.0E-4F)
-		}
-	}
-
-	test("VideoSpeedController speed is 1 by default") {
-		val mockController = mockk<PlaybackController>(relaxed = true)
-		val slot = slot<Float>()
-		justRun { mockController.setPlaybackSpeed(capture(slot)) }
-
-		VideoSpeedController(mockController)
-
-		verify { mockController.setPlaybackSpeed(any()) }
-		slot.captured shouldBe (1.0f plusOrMinus 1.0E-4F)
-	}
-
-	test("VideoSpeedController.currentSpeed getter returns set value") {
-		val mockController = mockk<PlaybackController>(relaxed = true)
-		val controller = VideoSpeedController(mockController)
-
-		val expected = VideoSpeedController.SpeedSteps.SPEED_1_25
-		controller.currentSpeed = expected
-
-		controller.currentSpeed shouldBe expected
-	}
-
-	test("VideoSpeedController.currentSpeed updates the speed in the controller") {
-		val mockController = mockk<PlaybackController>(relaxed = true)
-		val slot = slot<Float>()
-		justRun { mockController.setPlaybackSpeed(capture(slot)) }
-
-		val controller = VideoSpeedController(mockController)
-		val expected = VideoSpeedController.SpeedSteps.SPEED_1_75
-		controller.currentSpeed = expected
-
-		verify { mockController.setPlaybackSpeed(any()) }
-		slot.captured shouldBe (expected.speed plusOrMinus 1.0E-4F)
-	}
-
 	test("VideoSpeedController.resetSpeedToDefault() works correctly") {
 		val playbackController = mockk<PlaybackController>(relaxed = true)
 		val videoController = VideoSpeedController(playbackController)

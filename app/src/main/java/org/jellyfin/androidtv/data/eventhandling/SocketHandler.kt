@@ -4,6 +4,9 @@ import android.content.Context
 import android.widget.Toast
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.mapNotNull
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.jellyfin.androidtv.data.model.DataRefreshService
@@ -14,37 +17,37 @@ import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.api.client.exception.ApiClientException
 import org.jellyfin.sdk.api.client.extensions.sessionApi
 import org.jellyfin.sdk.api.client.extensions.userLibraryApi
-import org.jellyfin.sdk.api.sockets.SocketInstance
-import org.jellyfin.sdk.api.sockets.SocketInstanceState
-import org.jellyfin.sdk.api.sockets.addGeneralCommandsListener
-import org.jellyfin.sdk.api.sockets.addListener
+import org.jellyfin.sdk.api.sockets.SocketApi
+import org.jellyfin.sdk.api.sockets.subscribe
+import org.jellyfin.sdk.api.sockets.subscribeGeneralCommands
 import org.jellyfin.sdk.model.api.GeneralCommandType
 import org.jellyfin.sdk.model.api.LibraryUpdateInfo
+import org.jellyfin.sdk.model.api.LibraryChangedMessage
+import org.jellyfin.sdk.model.api.MediaType
+import org.jellyfin.sdk.model.api.PlayMessage
+import org.jellyfin.sdk.model.api.PlayRequest
+import org.jellyfin.sdk.model.api.PlaystateMessage
+import org.jellyfin.sdk.model.api.PlaystateRequest
 import org.jellyfin.sdk.model.api.PlaystateCommand
-import org.jellyfin.sdk.model.constant.MediaType
 import org.jellyfin.sdk.model.extensions.getValue
 import org.jellyfin.sdk.model.serializer.toUUIDOrNull
-import org.jellyfin.sdk.model.socket.LibraryChangedMessage
-import org.jellyfin.sdk.model.socket.PlayMessage
-import org.jellyfin.sdk.model.socket.PlayStateMessage
 import timber.log.Timber
 import java.util.UUID
 
 class SocketHandler(
 	private val context: Context,
 	private val api: ApiClient,
-	private val socketInstance: SocketInstance,
+	private val socket: SocketApi,
 	private val dataRefreshService: DataRefreshService,
 	private val mediaManager: MediaManager,
 	private val playbackControllerContainer: PlaybackControllerContainer,
 ) {
 	private val coroutineScope = CoroutineScope(Dispatchers.IO)
-	val state = socketInstance.state
 
 	suspend fun updateSession() {
 		try {
 			api.sessionApi.postCapabilities(
-				playableMediaTypes = listOf(MediaType.Video, MediaType.Audio),
+				playableMediaTypes = listOf(MediaType.VIDEO, MediaType.AUDIO),
 				supportsMediaControl = true,
 				supportedCommands = listOf(
 					GeneralCommandType.DISPLAY_MESSAGE,
@@ -55,36 +58,43 @@ class SocketHandler(
 			Timber.e(err, "Unable to update capabilities")
 			return
 		}
-
-		val isOffline = state.value == SocketInstanceState.DISCONNECTED || state.value == SocketInstanceState.ERROR
-		if (isOffline) socketInstance.reconnect()
-		else socketInstance.updateCredentials()
 	}
 
 	init {
-		socketInstance.apply {
-			// Library
-			addListener<LibraryChangedMessage> { message -> onLibraryChanged(message.info) }
+		// Library
+		socket.subscribe<LibraryChangedMessage>()
+			.mapNotNull { it.data }
+			.onEach(::onLibraryChanged)
+			.launchIn(coroutineScope)
 
-			// Media playback
-			addListener<PlayMessage> { message -> onPlayMessage(message) }
-			addListener<PlayStateMessage> { message -> onPlayStateMessage(message) }
+		// Media playback
+		socket.subscribe<PlayMessage>()
+			.mapNotNull { it.data }
+			.onEach(::onPlayMessage)
+			.launchIn(coroutineScope)
+		socket.subscribe<PlaystateMessage>()
+			.mapNotNull { it.data }
+			.onEach { onPlayStateMessage(it) }
+			.launchIn(coroutineScope)
 
-			// General commands
-			addGeneralCommandsListener(setOf(GeneralCommandType.DISPLAY_CONTENT)) { message ->
+		// General commands
+		socket.subscribeGeneralCommands(setOf(GeneralCommandType.DISPLAY_CONTENT))
+			.onEach { message ->
 				val itemId by message
 				val itemUuid = itemId?.toUUIDOrNull()
 
 				if (itemUuid != null) onDisplayContent(itemUuid)
 			}
-			addGeneralCommandsListener(setOf(GeneralCommandType.DISPLAY_MESSAGE, GeneralCommandType.SEND_STRING)) { message ->
+			.launchIn(coroutineScope)
+		socket.subscribeGeneralCommands(setOf(GeneralCommandType.DISPLAY_MESSAGE, GeneralCommandType.SEND_STRING))
+			.onEach { message ->
 				val header by message
 				val text by message
 				val string by message
 
 				onDisplayMessage(header, text ?: string)
 			}
-		}
+			.launchIn(coroutineScope)
 	}
 
 	private fun onLibraryChanged(info: LibraryUpdateInfo) {
@@ -99,23 +109,23 @@ class SocketHandler(
 			dataRefreshService.lastLibraryChange = System.currentTimeMillis()
 	}
 
-	private fun onPlayMessage(message: PlayMessage) {
-		val itemId = message.request.itemIds?.firstOrNull() ?: return
+	private fun onPlayMessage(request: PlayRequest) {
+		val itemId = request.itemIds?.firstOrNull() ?: return
 
 		PlaybackHelper.retrieveAndPlay(
 			itemId.toString(),
 			false,
-			message.request.startPositionTicks,
+			request.startPositionTicks,
 			context
 		)
 	}
 
 	@Suppress("ComplexMethod")
-	private fun onPlayStateMessage(message: PlayStateMessage) = coroutineScope.launch(Dispatchers.Main) {
-		Timber.i("Received PlayStateMessage with command ${message.request.command}")
+	private fun onPlayStateMessage(request: PlaystateRequest) = coroutineScope.launch(Dispatchers.Main) {
+		Timber.i("Received PlayStateMessage with command ${request.command}")
 		val playbackController = playbackControllerContainer.playbackController
 		// Audio playback uses the mediaManager, video playback and live tv use the playbackController
-		if (mediaManager.isAudioPlayerInitialized) when (message.request.command) {
+		if (mediaManager.isAudioPlayerInitialized) when (request.command) {
 			PlaystateCommand.STOP -> mediaManager.stopAudio(true)
 			PlaystateCommand.PAUSE, PlaystateCommand.UNPAUSE, PlaystateCommand.PLAY_PAUSE -> mediaManager.playPauseAudio()
 			PlaystateCommand.NEXT_TRACK -> mediaManager.nextAudioItem()
@@ -124,13 +134,13 @@ class SocketHandler(
 			PlaystateCommand.SEEK,
 			PlaystateCommand.REWIND,
 			PlaystateCommand.FAST_FORWARD -> Unit
-		} else when (message.request.command) {
+		} else when (request.command) {
 			PlaystateCommand.STOP -> playbackController?.endPlayback(true)
 			PlaystateCommand.PAUSE, PlaystateCommand.UNPAUSE, PlaystateCommand.PLAY_PAUSE -> playbackController?.playPause()
 			PlaystateCommand.NEXT_TRACK -> playbackController?.next()
 			PlaystateCommand.PREVIOUS_TRACK -> playbackController?.prev()
 			PlaystateCommand.SEEK -> playbackController?.seek(
-				(message.request.seekPositionTicks ?: 0) / TICKS_TO_MS
+				(request.seekPositionTicks ?: 0) / TICKS_TO_MS
 			)
 			// FIXME get rewind/forward amount from displayprefs
 			PlaystateCommand.REWIND -> playbackController?.skip(REWIND_MS)

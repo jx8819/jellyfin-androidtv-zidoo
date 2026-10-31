@@ -327,7 +327,7 @@ public class CardPresenter extends Presenter {
         BaseItemType baseItemType = item.getBaseItemType();
         if (BaseRowItem.ItemType.SearchHint.equals(rowType)) { // lookup baseType for searches
             try {
-                baseItemType = BaseItemType.valueOf(item.getSearchHint().getType());
+                baseItemType = BaseItemType.valueOf(item.getSearchHint().getType().getSerialName());
             } catch (IllegalArgumentException ignored) {
             }
         }

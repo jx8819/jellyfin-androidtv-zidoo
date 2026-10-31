@@ -14,7 +14,7 @@ import org.jellyfin.preference.intPreference
 import org.jellyfin.preference.stringPreference
 import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.model.api.SortOrder
-import org.jellyfin.sdk.model.constant.ItemSortBy
+import org.jellyfin.sdk.model.api.ItemSortBy
 
 class LibraryPreferences(
 	displayPreferencesId: String,
@@ -37,7 +37,7 @@ class LibraryPreferences(
 		val filterUnwatchedOnly = booleanPreference("FilterUnwatchedOnly", false)
 
 		// Item sorting
-		val sortBy = stringPreference("SortBy", ItemSortBy.SortName)
+		val sortBy = stringPreference("SortBy", ItemSortBy.SORT_NAME.serialName)
 		val sortOrder = enumPreference("SortOrder", SortOrder.ASCENDING)
 
 		// Audio settings

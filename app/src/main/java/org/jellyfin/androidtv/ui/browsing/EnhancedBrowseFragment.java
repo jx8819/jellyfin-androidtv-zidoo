@@ -58,7 +58,6 @@ import org.jellyfin.apiclient.interaction.EmptyResponse;
 import org.jellyfin.apiclient.model.dto.BaseItemDto;
 import org.jellyfin.apiclient.model.dto.BaseItemType;
 import org.jellyfin.apiclient.serialization.GsonJsonSerializer;
-import org.jellyfin.sdk.model.constant.CollectionType;
 import org.koin.java.KoinJavaComponent;
 
 import java.util.ArrayList;
@@ -165,16 +164,16 @@ public class EnhancedBrowseFragment extends Fragment implements RowLoader {
 
         if (mFolder.getCollectionType() != null) {
             switch (mFolder.getCollectionType()) {
-                case CollectionType.Movies:
+                case "movies":
                     itemTypeString = "Movie";
                     break;
-                case CollectionType.TvShows:
+                case "tvshows":
                     itemTypeString = "Series";
                     break;
-                case CollectionType.Music:
+                case "music":
                     itemTypeString = "MusicAlbum";
                     break;
-                case CollectionType.Folders:
+                case "folders":
                     showViews = false;
                     break;
                 default:
@@ -413,7 +412,7 @@ public class EnhancedBrowseFragment extends Fragment implements RowLoader {
                         seriesTimers.setBaseItemType(BaseItemType.Folder);
                         seriesTimers.setCollectionType("SeriesTimers");
                         seriesTimers.setName(mActivity.getString(R.string.lbl_series_recordings));
-                        seriesIntent.putExtra(Extras.Folder, Json.Default.encodeToString(org.jellyfin.sdk.model.api.BaseItemDto.Companion.serializer(), ModelCompat.asSdk(seriesTimers)));
+                        seriesIntent.putExtra(Extras.Folder, serializer.getValue().SerializeToString(seriesTimers));
 
                         requireActivity().startActivity(seriesIntent);
                         break;

@@ -4,8 +4,6 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import androidx.leanback.widget.*
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 import org.jellyfin.androidtv.R
 import org.jellyfin.androidtv.auth.repository.UserRepository
 import org.jellyfin.androidtv.constant.Extras
@@ -18,14 +16,19 @@ import org.jellyfin.androidtv.ui.livetv.LiveTvGuideActivity
 import org.jellyfin.androidtv.ui.presentation.CardPresenter
 import org.jellyfin.androidtv.ui.presentation.GridButtonPresenter
 import org.jellyfin.androidtv.util.Utils
-import org.jellyfin.sdk.model.api.BaseItemDto
-import org.jellyfin.sdk.model.api.BaseItemKind
+import org.jellyfin.apiclient.model.dto.BaseItemDto
+import org.jellyfin.apiclient.model.dto.BaseItemType
+import org.jellyfin.apiclient.serialization.GsonJsonSerializer
+import org.koin.java.KoinJavaComponent.inject
 import java.util.*
 
 class HomeFragmentLiveTVRow(
 	private val activity: Activity,
 	private val userRepository: UserRepository,
 ) : HomeFragmentRow, OnItemViewClickedListener {
+	// Legacy browse views accept app-only collection types such as SeriesTimers.
+	private val serializer by inject<GsonJsonSerializer>(GsonJsonSerializer::class.java)
+
 	override fun addToRowsAdapter(context: Context, presenter: CardPresenter, rowsAdapter: ArrayObjectAdapter) {
 		val header = HeaderItem(rowsAdapter.size().toLong(), activity.getString(R.string.pref_live_tv_cat))
 		val adapter = ArrayObjectAdapter(GridButtonPresenter())
@@ -58,12 +61,12 @@ class HomeFragmentLiveTVRow(
 					Intent(activity, BrowseRecordingsActivity::class.java).apply {
 						putExtra(
 							Extras.Folder,
-							Json.encodeToString(
-								BaseItemDto(
-									id = UUID(0L, 0L),
-									name = activity.getString(R.string.lbl_recorded_tv),
-									type = BaseItemKind.FOLDER,
-								)
+							serializer.SerializeToString(
+								BaseItemDto().apply {
+									id = UUID(0L, 0L).toString()
+									name = activity.getString(R.string.lbl_recorded_tv)
+									baseItemType = BaseItemType.Folder
+								}
 							))
 					}
 				)
@@ -78,13 +81,13 @@ class HomeFragmentLiveTVRow(
 					Intent(activity, UserViewActivity::class.java).apply {
 						putExtra(
 							Extras.Folder,
-							Json.encodeToString(
-								BaseItemDto(
-									id = UUID(0L, 0L),
-									name = activity.getString(R.string.lbl_series_recordings),
-									collectionType = "SeriesTimers",
-									type = BaseItemKind.FOLDER,
-								)
+							serializer.SerializeToString(
+								BaseItemDto().apply {
+									id = UUID(0L, 0L).toString()
+									name = activity.getString(R.string.lbl_series_recordings)
+									collectionType = "SeriesTimers"
+									baseItemType = BaseItemType.Folder
+								}
 							)
 						)
 					}

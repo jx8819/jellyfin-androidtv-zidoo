@@ -298,7 +298,7 @@ public class BaseRowItem {
                         (android.text.format.DateFormat.getTimeFormat(context).format(TimeUtils.convertToLocalDate(baseItem.getStartDate())) + "-"
                                 + android.text.format.DateFormat.getTimeFormat(context).format(TimeUtils.convertToLocalDate(baseItem.getEndDate())));
             case SearchHint:
-                return searchHint.getType();
+                return searchHint.getType().getSerialName();
             case SeriesTimer:
                 return (Utils.isTrue(seriesTimerInfo.getRecordAnyChannel()) ? "All Channels" : seriesTimerInfo.getChannelName()) + " " + seriesTimerInfo.getDayPattern();
         }
@@ -436,10 +436,10 @@ public class BaseRowItem {
             case Person -> ContextCompat.getDrawable(context, R.drawable.tile_port_person);
             case Chapter -> ContextCompat.getDrawable(context, R.drawable.tile_chapter);
             case SearchHint -> {
-                String type = getSearchHint().getType();
-                if (BaseItemKind.EPISODE.getSerialName().equals(type)) {
+                BaseItemKind type = getSearchHint().getType();
+                if (type == BaseItemKind.EPISODE) {
                     yield ContextCompat.getDrawable(context, isLandscape ? R.drawable.tile_land_tv : R.drawable.tile_port_tv);
-                } else if (BaseItemKind.PERSON.getSerialName().equals(type)) {
+                } else if (type == BaseItemKind.PERSON) {
                     yield ContextCompat.getDrawable(context, R.drawable.tile_port_person);
                 } else {
                     yield ContextCompat.getDrawable(context, R.drawable.tile_port_video);

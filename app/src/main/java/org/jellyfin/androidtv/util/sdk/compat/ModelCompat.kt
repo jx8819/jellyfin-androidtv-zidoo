@@ -48,8 +48,10 @@ import org.jellyfin.sdk.model.api.BaseItemPerson as ModernBaseItemPerson
 import org.jellyfin.sdk.model.api.ChannelType as ModernChannelType
 import org.jellyfin.sdk.model.api.ChapterInfo as ModernChapterInfo
 import org.jellyfin.sdk.model.api.DayOfWeek as ModernDayOfWeek
+import org.jellyfin.sdk.model.api.CollectionType as ModernCollectionType
 import org.jellyfin.sdk.model.api.DayPattern as ModernDayPattern
 import org.jellyfin.sdk.model.api.ExternalUrl as ModernExternalUrl
+import org.jellyfin.sdk.model.api.ExtraType as ModernExtraType
 import org.jellyfin.sdk.model.api.ImageOrientation as ModernImageOrientation
 import org.jellyfin.sdk.model.api.ImageType as ModernImageType
 import org.jellyfin.sdk.model.api.IsoType as ModernIsoType
@@ -60,10 +62,13 @@ import org.jellyfin.sdk.model.api.MediaSourceInfo as ModernMediaSourceInfo
 import org.jellyfin.sdk.model.api.MediaSourceType as ModernMediaSourceType
 import org.jellyfin.sdk.model.api.MediaStream as ModernMediaStream
 import org.jellyfin.sdk.model.api.MediaStreamType as ModernMediaStreamType
+import org.jellyfin.sdk.model.api.MediaStreamProtocol as ModernMediaStreamProtocol
+import org.jellyfin.sdk.model.api.MediaType as ModernMediaType
 import org.jellyfin.sdk.model.api.MediaUrl as ModernMediaUrl
 import org.jellyfin.sdk.model.api.MetadataField as ModernMetadataField
 import org.jellyfin.sdk.model.api.NameGuidPair as ModernNameGuidPair
 import org.jellyfin.sdk.model.api.NameIdPair as ModernNameIdPair
+import org.jellyfin.sdk.model.api.PersonKind as ModernPersonKind
 import org.jellyfin.sdk.model.api.PlayAccess as ModernPlayAccess
 import org.jellyfin.sdk.model.api.ProgramAudio as ModernProgramAudio
 import org.jellyfin.sdk.model.api.SearchHint as ModernSearchHint
@@ -73,6 +78,8 @@ import org.jellyfin.sdk.model.api.SubtitleDeliveryMethod as ModernSubtitleDelive
 import org.jellyfin.sdk.model.api.TransportStreamTimestamp as ModernTransportStreamTimestamp
 import org.jellyfin.sdk.model.api.UserItemDataDto as ModernUserItemDataDto
 import org.jellyfin.sdk.model.api.Video3dFormat as ModernVideo3dFormat
+import org.jellyfin.sdk.model.api.VideoRange as ModernVideoRange
+import org.jellyfin.sdk.model.api.VideoRangeType as ModernVideoRangeType
 import org.jellyfin.sdk.model.api.VideoType as ModernVideoType
 
 fun LegacyBaseItemDto.asSdk(): ModernBaseItemDto = ModernBaseItemDto(
@@ -94,7 +101,6 @@ fun LegacyBaseItemDto.asSdk(): ModernBaseItemDto = ModernBaseItemDto(
 	hasSubtitles = this.hasSubtitles,
 	preferredMetadataLanguage = this.preferredMetadataLanguage,
 	preferredMetadataCountryCode = this.preferredMetadataCountryCode,
-	supportsSync = false,
 	container = this.container,
 	sortName = this.sortName,
 	forcedSortName = this.forcedSortName,
@@ -154,7 +160,7 @@ fun LegacyBaseItemDto.asSdk(): ModernBaseItemDto = ModernBaseItemDto(
 	artists = this.artists,
 	artistItems = this.artistItems?.map { it.asSdk().toNameGuidPair() },
 	album = this.album,
-	collectionType = this.collectionType,
+	collectionType = this.collectionType?.let { ModernCollectionType.fromNameOrNull(it) },
 	displayOrder = this.displayOrder,
 	albumId = this.albumId?.toUUID(),
 	albumPrimaryImageTag = this.albumPrimaryImageTag,
@@ -182,7 +188,7 @@ fun LegacyBaseItemDto.asSdk(): ModernBaseItemDto = ModernBaseItemDto(
 	chapters = this.chapters?.map { it.asSdk() },
 	locationType = this.locationType?.asSdk(),
 	isoType = this.isoType?.asSdk(),
-	mediaType = this.mediaType,
+	mediaType = this.mediaType?.let { ModernMediaType.fromNameOrNull(it) } ?: ModernMediaType.UNKNOWN,
 	endDate = this.endDate?.toLocalDateTime(),
 	lockedFields = this.lockedFields?.map { it.asSdk() },
 	trailerCount = this.trailerCount,
@@ -283,7 +289,7 @@ private fun ModernDayOfWeek.Companion.from(str: String) = when (str.uppercase())
 
 private fun Date.toLocalDateTime(): LocalDateTime = toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime()
 
-private fun LegacyExtraType.asSdk(): String = this.name
+private fun LegacyExtraType.asSdk(): ModernExtraType? = ModernExtraType.fromNameOrNull(this.name)
 
 fun LegacyVideo3DFormat.asSdk(): ModernVideo3dFormat = when (this) {
 	LegacyVideo3DFormat.HalfSideBySide -> ModernVideo3dFormat.HALF_SIDE_BY_SIDE
@@ -336,7 +342,8 @@ fun LegacyMediaSourceInfo.asSdk(): ModernMediaSourceInfo = ModernMediaSourceInfo
 	timestamp = this.timestamp?.asSdk(),
 	requiredHttpHeaders = this.requiredHttpHeaders,
 	transcodingUrl = this.transcodingUrl,
-	transcodingSubProtocol = this.transcodingSubProtocol,
+	transcodingSubProtocol = this.transcodingSubProtocol?.takeUnless { it.isEmpty() }
+		?.let { ModernMediaStreamProtocol.fromName(it) } ?: ModernMediaStreamProtocol.HTTP,
 	transcodingContainer = this.transcodingContainer,
 	analyzeDurationMs = null, // this.analyzeDurationMs
 	defaultAudioStreamIndex = this.defaultAudioStreamIndex,
@@ -378,7 +385,7 @@ fun LegacyBaseItemPerson.asSdk(): ModernBaseItemPerson = ModernBaseItemPerson(
 	name = this.name,
 	id = this.id.toUUID(),
 	role = this.role,
-	type = this.type,
+	type = this.type?.let { ModernPersonKind.fromNameOrNull(it) } ?: ModernPersonKind.UNKNOWN,
 	primaryImageTag = this.primaryImageTag,
 	imageBlurHashes = null, // this.imageBlurHashes
 )
@@ -417,7 +424,9 @@ fun LegacyMediaStream.asSdk(): ModernMediaStream = ModernMediaStream(
 	timeBase = this.timeBase,
 	codecTimeBase = this.codecTimeBase,
 	title = this.title,
-	videoRange = null, // this.videoRange
+	// The legacy apiclient does not expose HDR range metadata.
+	videoRange = ModernVideoRange.UNKNOWN,
+	videoRangeType = ModernVideoRangeType.UNKNOWN,
 	localizedUndefined = null, // this.localizedUndefined
 	localizedDefault = null, // this.localizedDefault
 	localizedForced = null, // this.localizedForced
@@ -434,6 +443,7 @@ fun LegacyMediaStream.asSdk(): ModernMediaStream = ModernMediaStream(
 	sampleRate = this.sampleRate,
 	isDefault = this.isDefault,
 	isForced = this.isForced,
+	isHearingImpaired = false, // Not exposed by the legacy apiclient.
 	height = this.height,
 	width = this.width,
 	averageFrameRate = this.averageFrameRate,
@@ -625,10 +635,10 @@ fun LegacySearchHint.asSdk(): ModernSearchHint = ModernSearchHint(
 	thumbImageItemId = this.thumbImageItemId,
 	backdropImageTag = this.backdropImageTag,
 	backdropImageItemId = this.backdropImageItemId,
-	type = this.type,
+	type = BaseItemKind.from(this.type)!!,
 	isFolder = null, // this.isFolder
 	runTimeTicks = this.runTimeTicks,
-	mediaType = this.mediaType,
+	mediaType = this.mediaType?.let { ModernMediaType.fromNameOrNull(it) } ?: ModernMediaType.UNKNOWN,
 	startDate = null, // this.startDate
 	endDate = null, // this.endDate
 	series = this.series,
@@ -636,7 +646,7 @@ fun LegacySearchHint.asSdk(): ModernSearchHint = ModernSearchHint(
 	album = this.album,
 	albumId = UUID.randomUUID(), // this.albumId
 	albumArtist = this.albumArtist,
-	artists = this.artists?.toList(),
+	artists = this.artists?.toList().orEmpty(),
 	songCount = this.songCount,
 	episodeCount = this.episodeCount,
 	channelId = this.channelId.toUUID(),

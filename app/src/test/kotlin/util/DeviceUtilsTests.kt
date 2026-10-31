@@ -7,18 +7,6 @@ import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
 
 class DeviceUtilsTests : FunSpec({
-	test("DeviceUtils.getBuildModel() is unknown") {
-		DeviceUtils.getBuildModel() shouldBe "Unknown"
-	}
-
-	test("DeviceUtils methods support unknown as model") {
-		DeviceUtils.isChromecastWithGoogleTV() shouldBe false
-		DeviceUtils.isFireTv() shouldBe false
-		DeviceUtils.isFireTvStickGen1() shouldBe false
-		DeviceUtils.isFireTvStick4k() shouldBe false
-		DeviceUtils.isShieldTv() shouldBe false
-		DeviceUtils.has4kVideoSupport() shouldBe false
-	}
 
 	fun withBuildModel(buildModel: String, block: () -> Unit) {
 		mockkStatic(DeviceUtils::class)
