@@ -24,7 +24,7 @@ android {
 		versionCode = getVersionCode(versionName!!)
 		setProperty("archivesBaseName", "jellyfin-androidtv-v$versionName")
 
-		ndk.abiFilters.addAll(setOf("armeabi-v7a","x86"))
+		ndk.abiFilters.addAll(setOf("armeabi-v7a"))
 	}
 
 	sourceSets["main"].java.srcDirs("src/main/kotlin")
